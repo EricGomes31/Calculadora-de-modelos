@@ -1078,13 +1078,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   var lc = function(v){ return v >= 0 ? 'pos' : 'neg'; };
   function kpi(l, v, s, cl){ return '<div class="kpi"><div class="kl">' + l + '</div><div class="kv' + (cl ? ' ' + cl : '') + '">' + v + '</div><div class="ks">' + s + '</div></div>'; }
   function renderVendas(){
-    var cur = hoje().slice(0, 7), months = {};
-    months[cur] = 1; vendas.forEach(function(v){ months[v.data.slice(0, 7)] = 1; });
-    var per = state.vPer === 'all' || months[state.vPer] ? state.vPer : cur;
-    $('vPer').innerHTML = Object.keys(months).sort().reverse().map(function(k){
-      return '<option value="' + k + '"' + (k === per ? ' selected' : '') + '>' + mesNome(k) + '</option>';
-    }).join('') + '<option value="all"' + (per === 'all' ? ' selected' : '') + '>Todo o período</option>';
-
+    var per = periodOptions($('vPer'), vendas.concat(gastos), state.vPer);
     var list = vendas.filter(function(v){ return per === 'all' || v.data.slice(0, 7) === per; });
     var t = { qtd: 0, bruto: 0, recebido: 0, lucro: 0 };
     list.forEach(function(v){ t.qtd += v.qtd; t.bruto += v.bruto; t.recebido += v.recebido; t.lucro += v.lucro; });
@@ -1161,7 +1155,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     $('gSug').innerHTML = Object.keys(sug).map(function(k){ return '<option value="' + esc(k) + '">'; }).join('');
     if (!$('g-data').value) $('g-data').value = hoje();
     fillMatSelect(); gFilSync();
-    var per = periodOptions($('gPer'), gastos, state.gPer);
+    var per = periodOptions($('gPer'), vendas.concat(gastos), state.vPer);  // same period as the Vendas tab
     var inPer = function(v){ return per === 'all' || v.data.slice(0, 7) === per; };
     var list = gastos.filter(inPer), total = 0, cats = {};
     list.forEach(function(g){ total += g.valor; cats[g.cat] = (cats[g.cat] || 0) + g.valor; });
@@ -1248,13 +1242,13 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     }
     gastos.push(g);
     gastos.sort(function(a, b){ return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
-    state.gPer = data.slice(0, 7);
+    state.vPer = data.slice(0, 7);
     store(KEY_GASTOS, gastos); store(KEY_STATE, state); flushFile();
     $('g-desc').value = ''; $('g-valor').value = ''; $('g-kg').value = '1'; gMatTouched = false;
     renderGastos(); $('g-desc').focus();
     toast('Gasto adicionado: ' + desc + ', ' + money(valor) + '.' + extra);
   });
-  $('gPer').onchange = function(){ state.gPer = this.value; store(KEY_STATE, state); renderGastos(); };
+  $('gPer').onchange = function(){ state.vPer = this.value; store(KEY_STATE, state); renderGastos(); };
   $('gLista').addEventListener('click', function(e){
     var b = e.target.closest('[data-gdel]'); if (!b) return;
     if (b.dataset.armed) {
