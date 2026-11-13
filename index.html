@@ -264,6 +264,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
       <button class="tab" role="tab" id="tab-calc" data-tab="calc">Calcular peça</button>
       <button class="tab" role="tab" id="tab-saved" data-tab="saved">Modelos salvos <span class="cnt" id="savedCount">0</span></button>
       <button class="tab" role="tab" id="tab-vendas" data-tab="vendas">Vendas</button>
+      <button class="tab" role="tab" id="tab-gastos" data-tab="gastos">Gastos</button>
       <button class="tab" role="tab" id="tab-cfg" data-tab="cfg">Configurações</button>
     </nav>
   </header>
@@ -407,6 +408,37 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     <div class="toast"></div>
   </section>
 
+  <!-- ============ GASTOS ============ -->
+  <section id="view-gastos" role="tabpanel" aria-labelledby="tab-gastos" hidden>
+    <section class="sec" style="margin-bottom:14px">
+      <div class="sec-h"><h2>Registrar gasto</h2><p>Compras de filamento, peças, embalagens e tudo mais que sai do caixa da impressão.</p></div>
+      <form id="gForm">
+        <div class="fields">
+          <div class="field"><label class="lbl" for="g-data">Data</label>
+            <div class="inp"><input id="g-data" type="date"></div></div>
+          <div class="field"><label class="lbl" for="g-desc">O que comprou</label>
+            <div class="inp"><input id="g-desc" type="text" list="gSug" placeholder="Ex.: PLA Preto 1 kg" autocomplete="off" required></div></div>
+          <div class="field"><label class="lbl" for="g-cat">Categoria</label>
+            <div class="inp"><select id="g-cat"></select></div></div>
+          <div class="field"><label class="lbl" for="g-valor">Valor total</label>
+            <div class="inp"><span class="u pre">R$</span><input id="g-valor" class="num" type="text" inputmode="decimal" placeholder="0,00" required></div>
+            <span class="hint">Com o frete, se teve.</span></div>
+        </div>
+        <datalist id="gSug"></datalist>
+        <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Adicionar gasto</button></div>
+      </form>
+    </section>
+    <div class="vhead">
+      <div class="inp"><select id="gPer" aria-label="Período"></select></div>
+    </div>
+    <div class="kpis" id="gKpi"></div>
+    <div class="vgrid">
+      <section class="sec"><div class="sec-h"><h2>Por categoria</h2></div><div class="tscroll" id="gCats"></div></section>
+      <section class="sec"><div class="sec-h"><h2>Gastos registrados</h2></div><div class="tscroll" id="gLista"></div></section>
+    </div>
+    <div class="toast"></div>
+  </section>
+
   <!-- ============ CONFIGURAÇÕES ============ -->
   <section id="view-cfg" role="tabpanel" aria-labelledby="tab-cfg" hidden>
     <div class="col narrow">
@@ -475,7 +507,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
       </section>
 
       <section class="sec" id="cloudSec" hidden>
-        <div class="sec-h"><h2>Conta na nuvem</h2><p>Os mesmos modelos, vendas e configurações no celular e no computador.</p></div>
+        <div class="sec-h"><h2>Conta na nuvem</h2><p>Os mesmos modelos, vendas, gastos e configurações no celular e no computador.</p></div>
         <p class="explain" id="cloudInfo" style="margin-top:0"></p>
         <div class="actions" id="cloudOut" style="margin-top:12px" hidden>
           <button class="btn" type="button" id="cloudSync">Sincronizar agora</button>
@@ -556,7 +588,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
 (function(){
   // Supabase project (the publishable/anon key is meant to be public; row level security protects the data).
   var SUPA_URL = 'https://hqaihhfymmppuxwqhyjh.supabase.co', SUPA_KEY = 'sb_publishable_8j0w4JtLtC9oM6vf-dsS8g_Dtvhmnsx';
-  var KEY_STATE = 'calc3d.state.v2', KEY_SAVED = 'calc3d.modelos.v2', KEY_VENDAS = 'calc3d.vendas.v1';
+  var KEY_STATE = 'calc3d.state.v2', KEY_SAVED = 'calc3d.modelos.v2', KEY_VENDAS = 'calc3d.vendas.v1', KEY_GASTOS = 'calc3d.gastos.v1';
   var uid = function(){ return Math.random().toString(36).slice(2, 9); };
   var DEFAULTS = {
     tab: 'calc', seenSetup: false, markup: '3', precos: {},
@@ -624,16 +656,18 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   var state = mergeState(load(KEY_STATE, null));
   var saved = load(KEY_SAVED, []);
   var vendas = load(KEY_VENDAS, []);
+  var gastos = load(KEY_GASTOS, []);
 
   /* ---------- tabs ---------- */
   function showTab(t){
     if (!$('view-' + t)) t = 'calc';
     state.tab = t;
-    ['calc', 'saved', 'vendas', 'cfg'].forEach(function(x){
+    ['calc', 'saved', 'vendas', 'gastos', 'cfg'].forEach(function(x){
       $('view-' + x).hidden = x !== t;
       $('tab-' + x).setAttribute('aria-selected', x === t ? 'true' : 'false');
     });
     if (t === 'vendas') renderVendas();
+    if (t === 'gastos') renderGastos();
     updateMbar(); store(KEY_STATE, state);
   }
   document.addEventListener('click', function(e){
@@ -1093,6 +1127,84 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     setTimeout(function(){ if (b.isConnected) { delete b.dataset.armed; b.classList.remove('armed'); b.textContent = '×'; } }, 3000);
   });
 
+  /* ---------- expenses page ---------- */
+  var CATS = ['Filamento', 'Peças e manutenção', 'Embalagens', 'Acessórios (argolas, ímãs…)', 'Ferramentas e equipamentos',
+    'Energia e contas', 'Frete e envio', 'Anúncios e divulgação', 'Outros'];
+  $('g-cat').innerHTML = CATS.map(function(c){ return '<option>' + esc(c) + '</option>'; }).join('');
+  function periodOptions(sel, list, per){
+    var cur = hoje().slice(0, 7), months = {};
+    months[cur] = 1; list.forEach(function(v){ months[v.data.slice(0, 7)] = 1; });
+    per = per === 'all' || months[per] ? per : cur;
+    sel.innerHTML = Object.keys(months).sort().reverse().map(function(k){
+      return '<option value="' + k + '"' + (k === per ? ' selected' : '') + '>' + mesNome(k) + '</option>';
+    }).join('') + '<option value="all"' + (per === 'all' ? ' selected' : '') + '>Todo o período</option>';
+    return per;
+  }
+  // Suggestions: filament and item names from Configurações plus earlier purchases.
+  function gastoSugestoes(){
+    var s = {};
+    state.cfg.materiais.forEach(function(m){ if (m.nome) s[m.nome] = 'Filamento'; });
+    state.cfg.itens.forEach(function(i){ if (i.nome && !s[i.nome]) s[i.nome] = 'Embalagens'; });
+    gastos.forEach(function(g){ s[g.desc] = g.cat; });
+    return s;
+  }
+  function renderGastos(){
+    var sug = gastoSugestoes();
+    $('gSug').innerHTML = Object.keys(sug).map(function(k){ return '<option value="' + esc(k) + '">'; }).join('');
+    if (!$('g-data').value) $('g-data').value = hoje();
+    var per = periodOptions($('gPer'), gastos, state.gPer);
+    var inPer = function(v){ return per === 'all' || v.data.slice(0, 7) === per; };
+    var list = gastos.filter(inPer), total = 0, cats = {};
+    list.forEach(function(g){ total += g.valor; cats[g.cat] = (cats[g.cat] || 0) + g.valor; });
+    var recebido = 0; vendas.filter(inPer).forEach(function(v){ recebido += v.recebido; });
+    var caixa = recebido - total, top = Object.keys(cats).sort(function(a, b){ return cats[b] - cats[a]; });
+    $('gKpi').innerHTML =
+      kpi('Total gasto', money(total), list.length + (list.length === 1 ? ' compra' : ' compras')) +
+      kpi('Maior gasto', top.length ? esc(top[0]) : '—', top.length ? money(cats[top[0]]) : 'nenhuma compra') +
+      kpi('Recebido nas vendas', money(recebido), 'depois das taxas') +
+      kpi('Sobrou no caixa', money(caixa), 'recebido menos gastos', (list.length || recebido) ? lc(caixa) : '');
+    if (!list.length) {
+      $('gCats').innerHTML = $('gLista').innerHTML = '<p class="hint" style="margin:0">Nenhum gasto neste período.</p>';
+      return;
+    }
+    $('gCats').innerHTML = '<table class="tbl"><thead><tr><th>Categoria</th><th class="r">Total</th><th class="r">Parte</th></tr></thead><tbody>' +
+      top.map(function(c){
+        return '<tr><td class="nm">' + esc(c) + '</td><td class="r">' + money(cats[c]) + '</td><td class="r">' + pctF.format(total > 0 ? cats[c] / total : 0) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    $('gLista').innerHTML = '<table class="tbl"><thead><tr><th>Data</th><th>O que comprou</th><th class="r">Valor</th><th></th></tr></thead><tbody>' +
+      list.map(function(g){
+        return '<tr><td class="dt">' + g.data.split('-').reverse().join('/') + '</td>' +
+          '<td class="nm">' + esc(g.desc) + '<span class="s2">' + esc(g.cat) + '</span></td>' +
+          '<td class="r">' + money(g.valor) + '</td>' +
+          '<td class="r"><button type="button" class="xbtn" data-gdel="' + g.id + '" title="Excluir gasto" aria-label="Excluir gasto">×</button></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  // Picking a known name fills in its category.
+  $('g-desc').addEventListener('change', function(){ var c = gastoSugestoes()[this.value.trim()]; if (c && CATS.indexOf(c) >= 0) $('g-cat').value = c; });
+  $('gForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var desc = $('g-desc').value.trim(), valor = r2(n($('g-valor').value));
+    if (!desc) return;
+    if (!(valor > 0)) { toast('Informe o valor do gasto.', true); $('g-valor').focus(); return; }
+    var data = $('g-data').value || hoje();
+    gastos.push({ id: uid(), data: data, desc: desc, cat: $('g-cat').value, valor: valor });
+    gastos.sort(function(a, b){ return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
+    state.gPer = data.slice(0, 7);
+    store(KEY_GASTOS, gastos); store(KEY_STATE, state); flushFile(); renderGastos();
+    $('g-desc').value = ''; $('g-valor').value = ''; $('g-desc').focus();
+    toast('Gasto adicionado: ' + desc + ', ' + money(valor) + '.');
+  });
+  $('gPer').onchange = function(){ state.gPer = this.value; store(KEY_STATE, state); renderGastos(); };
+  $('gLista').addEventListener('click', function(e){
+    var b = e.target.closest('[data-gdel]'); if (!b) return;
+    if (b.dataset.armed) {
+      gastos = gastos.filter(function(g){ return g.id !== b.dataset.gdel; });
+      store(KEY_GASTOS, gastos); flushFile(); renderGastos(); toast('Gasto excluído.'); return;
+    }
+    b.dataset.armed = '1'; b.classList.add('armed'); b.textContent = 'Excluir?';
+    setTimeout(function(){ if (b.isConnected) { delete b.dataset.armed; b.classList.remove('armed'); b.textContent = '×'; } }, 3000);
+  });
+
   /* ---------- data file (File System Access API) ---------- */
   var FS = 'showSaveFilePicker' in window && 'indexedDB' in window;
   var fh = null, fileOk = false, fstat = 'none', saveT = null, wq = Promise.resolve(), baseline = '';
@@ -1115,18 +1227,19 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   var idbSet = function(k, v){ return idb('readwrite', function(s){ s.put(v, k); }); };
   var idbDel = function(k){ return idb('readwrite', function(s){ s.delete(k); }); };
 
-  function snapshot(){ return { app: 'calculadora-3d', versao: 1, salvoEm: new Date().toISOString(), estado: state, modelos: saved, vendas: vendas }; }
-  function validSnap(d){ return !!d && typeof d === 'object' && !!d.estado && typeof d.estado === 'object' && Array.isArray(d.modelos) && Array.isArray(d.vendas); }
-  // Everything except UI position (tab, period filter), to tell whether data changed.
-  function dataKey(s, m, v){ var e = Object.assign({}, s); delete e.tab; delete e.vPer; return JSON.stringify([e, m, v]); }
-  var localKey = function(){ return dataKey(state, saved, vendas); };
-  var snapKey = function(d){ return dataKey(mergeState(d.estado), d.modelos, d.vendas); };
+  function snapshot(){ return { app: 'calculadora-3d', versao: 1, salvoEm: new Date().toISOString(), estado: state, modelos: saved, vendas: vendas, gastos: gastos }; }
+  // gastos is optional: copies saved before the Gastos tab existed don't have it.
+  function validSnap(d){ return !!d && typeof d === 'object' && !!d.estado && typeof d.estado === 'object' && Array.isArray(d.modelos) && Array.isArray(d.vendas) && (d.gastos == null || Array.isArray(d.gastos)); }
+  // Everything except UI position (tab, period filters), to tell whether data changed.
+  function dataKey(s, m, v, g){ var e = Object.assign({}, s); delete e.tab; delete e.vPer; delete e.gPer; return JSON.stringify([e, m, v, g]); }
+  var localKey = function(){ return dataKey(state, saved, vendas, gastos); };
+  var snapKey = function(d){ return dataKey(mergeState(d.estado), d.modelos, d.vendas, d.gastos || []); };
 
   function applySnapshot(d){
     var tab = state.tab, ok = fileOk; fileOk = false;
-    state = mergeState(d.estado); state.tab = tab; saved = d.modelos; vendas = d.vendas;
-    store(KEY_STATE, state); store(KEY_SAVED, saved); store(KEY_VENDAS, vendas);
-    refreshAll(); renderSaved(); renderVendas(); $('banner').hidden = !!state.seenSetup;
+    state = mergeState(d.estado); state.tab = tab; saved = d.modelos; vendas = d.vendas; gastos = d.gastos || [];
+    store(KEY_STATE, state); store(KEY_SAVED, saved); store(KEY_VENDAS, vendas); store(KEY_GASTOS, gastos);
+    refreshAll(); renderSaved(); renderVendas(); renderGastos(); $('banner').hidden = !!state.seenSetup;
     fileOk = ok;
   }
   function scheduleFileSave(){ if (!fileOk) return; clearTimeout(saveT); saveT = setTimeout(writeFile, 600); }
@@ -1230,8 +1343,8 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
       .then(function(hs){ h = hs[0]; return askWrite(h); })
       .then(function(){ return readHandle(h); })
       .then(function(d){
-        if (d && (saved.length || vendas.length) && snapKey(d) !== localKey() &&
-          !confirm('Os modelos, vendas e configurações deste navegador serão substituídos pelos do arquivo "' + h.name + '". Continuar?')) return;
+        if (d && (saved.length || vendas.length || gastos.length) && snapKey(d) !== localKey() &&
+          !confirm('Os modelos, vendas, gastos e configurações deste navegador serão substituídos pelos do arquivo "' + h.name + '". Continuar?')) return;
         return useHandle(h, d).then(function(){ toast('Arquivo "' + h.name + '" conectado.'); });
       }).catch(fileFail);
   };
@@ -1253,7 +1366,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     f.text().then(function(t){
       var d; try { d = JSON.parse(t); } catch (e) { throw erro('Esse arquivo não é um JSON válido.'); }
       if (!validSnap(d)) throw erro('Esse arquivo não é da Calculadora 3D.');
-      if (!confirm('Substituir os modelos, vendas e configurações atuais pelos da cópia?')) return;
+      if (!confirm('Substituir os modelos, vendas, gastos e configurações atuais pelos da cópia?')) return;
       applySnapshot(d); flushFile(); toast('Cópia importada.');
     }).catch(fileFail);
   };
@@ -1317,7 +1430,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
         if (!row) { cMeta = { uid: u.id }; return upload(u, h); }
         if (snapKey(row.dados) === local) { cMeta = { uid: u.id, at: row.atualizado_em, h: h }; cSaveMeta(); cSet('ok'); return; }
         if (first) {
-          var temLocal = saved.length || vendas.length;
+          var temLocal = saved.length || vendas.length || gastos.length;
           if (temLocal && !confirm('Esta conta já tem dados na nuvem, diferentes dos deste aparelho.\n\nOK: usar os dados da nuvem neste aparelho.\nCancelar: substituir os dados da nuvem pelos deste aparelho.')) { cMeta = { uid: u.id }; return upload(u, h); }
           return pull(u, row, 'Dados da nuvem carregados.');
         }
@@ -1362,7 +1475,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     $('gate').hidden = !show;
     if (!show) return;
     $('gateFields').hidden = !authKnown;
-    $('gateMsg').textContent = authKnown ? 'Entre com sua conta para ver seus modelos, vendas e configurações.' : 'Carregando…';
+    $('gateMsg').textContent = authKnown ? 'Entre com sua conta para ver seus modelos, vendas, gastos e configurações.' : 'Carregando…';
   }
   $('gateForm').onsubmit = function(e){
     e.preventDefault();
@@ -1474,7 +1587,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   });
 
   function refreshAll(){ fillBound(); Object.keys(LISTS).forEach(renderList); buildChans(); renderFoto(); update(); }
-  refreshAll(); renderSaved(); renderVendas();
+  refreshAll(); renderSaved(); renderVendas(); renderGastos();
   $('banner').hidden = !!state.seenSetup;
   showTab(state.tab || 'calc');
   baseline = localKey();
