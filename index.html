@@ -1411,18 +1411,46 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     b.setAttribute('style', fc); b.classList.toggle('has', !!fc);
     b.setAttribute('aria-label', fc ? 'Trocar foto da peça' : 'Adicionar foto da peça');
     $('sumFoto').hidden = !fc; $('sumFoto').setAttribute('style', fc);
-    $('fotoHint').innerHTML = fc ? 'Clique na foto para trocar. <button class="link" type="button" id="fotoDel">Remover foto</button>' : 'Clique no quadrado, arraste uma imagem ou cole com Ctrl+V.';
+    var colar = CAN_READ_CLIP ? ' <button class="link" type="button" id="fotoPaste">Colar imagem</button>' : '';
+    $('fotoHint').innerHTML = fc
+      ? 'Clique na foto para trocar, ou cole outra com Ctrl+V. <button class="link" type="button" id="fotoDel">Remover foto</button>'
+      : 'Clique no quadrado, arraste uma imagem ou cole com Ctrl+V.' + colar;
+  }
+  function fotoErro(msg){
+    toast(msg, true);
+    var h = $('fotoHint'); h.textContent = msg; h.style.color = 'var(--bad)';
+    setTimeout(function(){ h.style.color = ''; renderFoto(); }, 5000);
   }
   function setFoto(file){
-    if (!file || !/^image\//.test(file.type)) return;
+    if (!file || !/^image\//.test(file.type)) { if (file) fotoErro('Isso não é uma imagem.'); return; }
     lerFoto(file).then(function(d){
       state.modelo.foto = d; renderFoto(); update();
       toast('Foto adicionada. Clique em "Salvar modelo" para guardar no modelo.');
-    }, function(){ toast('Não foi possível ler essa imagem.', true); });
+    }, function(){ fotoErro('Não foi possível ler essa imagem.'); });
+  }
+  // An image copied from a web page sometimes arrives only as a link; try downloading it.
+  function fotoDeUrl(src){
+    fetch(src).then(function(r){ if (!r.ok) throw 0; return r.blob(); }).then(function(b){
+      if (!/^image\//.test(b.type)) throw 0;
+      setFoto(b);
+    }).catch(function(){ fotoErro('Esse site não deixa copiar a imagem direto. Clique com o botão direito nela, escolha "Copiar imagem" e cole de novo, ou salve e arraste para o quadrado.'); });
+  }
+  var CAN_READ_CLIP = !!(navigator.clipboard && navigator.clipboard.read);
+  function colarDoClipboard(){
+    navigator.clipboard.read().then(function(items){
+      for (var i = 0; i < items.length; i++) {
+        var t = items[i].types.filter(function(x){ return /^image\//.test(x); })[0];
+        if (t) return items[i].getType(t);
+      }
+      throw erro('Não há imagem copiada. Copie uma imagem e tente de novo.');
+    }).then(setFoto).catch(function(e){
+      fotoErro((e && e.userMsg) || 'Não foi possível ler a imagem copiada. Permita o acesso à área de transferência, ou use Ctrl+V.');
+    });
   }
   $('fotoBtn').onclick = function(){ $('fotoIn').click(); };
   $('fotoIn').onchange = function(){ var f = this.files[0]; this.value = ''; setFoto(f); };
   $('fotoHint').addEventListener('click', function(e){
+    if (e.target.id === 'fotoPaste') { colarDoClipboard(); return; }
     if (e.target.id !== 'fotoDel') return;
     delete state.modelo.foto; renderFoto(); update(); toast('Foto removida. Salve o modelo para confirmar.');
   });
@@ -1431,8 +1459,18 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   $('fotoBtn').addEventListener('drop', function(e){ e.preventDefault(); this.classList.remove('drag'); setFoto(e.dataTransfer.files[0]); });
   document.addEventListener('paste', function(e){
     if (state.tab !== 'calc' || !e.clipboardData) return;
-    var f = [].slice.call(e.clipboardData.files || []).filter(function(x){ return /^image\//.test(x.type); })[0];
-    if (f) { e.preventDefault(); setFoto(f); }
+    var cd = e.clipboardData, f = null;
+    // Screenshots and "Copiar imagem" arrive as clipboard items; files copied in Windows Explorer as files.
+    [].slice.call(cd.items || []).some(function(it){ if (it.kind === 'file' && /^image\//.test(it.type)) f = it.getAsFile(); return !!f; });
+    if (!f) f = [].slice.call(cd.files || []).filter(function(x){ return /^image\//.test(x.type); })[0];
+    if (f) { e.preventDefault(); setFoto(f); return; }
+    var t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    var html = cd.getData('text/html') || '', text = (cd.getData('text/plain') || '').trim();
+    var m = html.match(/<img[^>]+src\s*=\s*["']([^"']+)["']/i), src = m ? m[1].replace(/&amp;/g, '&') : '';
+    if (src && typing && text) src = '';  // copied text that happens to contain a picture: let it paste as text
+    if (!src && !typing && /^(https?:\/\/\S+|data:image\/\S+)$/i.test(text)) src = text;
+    if (!src) return;
+    e.preventDefault(); fotoDeUrl(src);
   });
 
   function refreshAll(){ fillBound(); Object.keys(LISTS).forEach(renderList); buildChans(); renderFoto(); update(); }
