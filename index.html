@@ -1175,7 +1175,6 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     var name = esc(fh ? fh.name : '');
     fileChip = { ok: ['ok', 'Salvo em ' + (fh ? fh.name : '')], ask: ['', 'Arquivo desconectado'], err: ['bad', 'Erro ao gravar arquivo'], none: ['', 'Salvo só neste navegador'], off: ['', 'Salvo só neste navegador'] }[s];
     renderChip();
-    $('fbanner').hidden = !(s === 'ask' || s === 'err');
     $('fbannerT').innerHTML = s === 'err'
       ? 'Não foi possível gravar no arquivo <b>' + name + '</b>. Suas alterações estão guardadas neste navegador. Clique em Reconectar.'
       : 'Seus dados estão no arquivo <b>' + name + '</b>. Clique em Reconectar para carregar e continuar salvando nele.';
@@ -1196,6 +1195,8 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     var c = cUser ? ({ ok: ['ok', 'Salvo na nuvem'], sync: ['', 'Salvando na nuvem…'], err: ['bad', 'Erro ao salvar na nuvem'] }[cStat] || ['', 'Conectando à nuvem…']) : fileChip;
     $('fchip').className = 'fchip ' + c[0]; $('fchipT').textContent = c[1];
     $('vNudge').hidden = !!cUser || !(fstat === 'none' || fstat === 'off');
+    // With the cloud on, the data file is only an optional extra copy: no need to nag about reconnecting it.
+    $('fbanner').hidden = !!cUser || !(fstat === 'ask' || fstat === 'err');
     $('vNudgeT').textContent = CLOUD_CFG
       ? 'As vendas estão só neste navegador. Entre na sua conta na nuvem para não perder o histórico e ver tudo no celular.'
       : fstat === 'off'
