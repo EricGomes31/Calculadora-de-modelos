@@ -194,6 +194,10 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   .mbar .mv{font:700 18px var(--f-display)}
   body.has-mbar .wrap{padding-bottom:110px}
 }
+.gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.gate-box{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.gate-box p{margin:0;font-size:14px;color:var(--ink-2)}
+.gate-err{font-size:13px;color:var(--bad);min-height:18px}
 .tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font:12px var(--f-mono);padding:6px 9px;border-radius:6px;z-index:10;white-space:nowrap}
 
 /* product photo */
@@ -473,15 +477,6 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
       <section class="sec" id="cloudSec" hidden>
         <div class="sec-h"><h2>Conta na nuvem</h2><p>Os mesmos modelos, vendas e configurações no celular e no computador.</p></div>
         <p class="explain" id="cloudInfo" style="margin-top:0"></p>
-        <form id="cloudForm" hidden>
-          <div class="fields" style="margin-top:12px">
-            <div class="field"><label class="lbl" for="cl-email">E-mail</label>
-              <div class="inp"><input id="cl-email" type="email" autocomplete="username" required></div></div>
-            <div class="field"><label class="lbl" for="cl-senha">Senha</label>
-              <div class="inp"><input id="cl-senha" type="password" autocomplete="current-password" required></div></div>
-          </div>
-          <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit" id="cloudIn">Entrar</button></div>
-        </form>
         <div class="actions" id="cloudOut" style="margin-top:12px" hidden>
           <button class="btn" type="button" id="cloudSync">Sincronizar agora</button>
           <button class="btn" type="button" id="cloudExit">Sair da conta</button>
@@ -517,6 +512,21 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   <button class="btn sm primary" type="button" id="mbGo">Ver preços</button>
 </div>
 <div class="tip" id="tip" hidden></div>
+
+<div class="gate" id="gate" hidden>
+  <form class="gate-box" id="gateForm">
+    <div><div class="eyebrow">Impressão 3D · custo e preço</div><h1>Calculadora 3D</h1></div>
+    <p id="gateMsg">Carregando…</p>
+    <div id="gateFields" hidden style="display:contents">
+      <div class="field"><label class="lbl" for="g-email">E-mail</label>
+        <div class="inp"><input id="g-email" type="email" autocomplete="username" required></div></div>
+      <div class="field"><label class="lbl" for="g-senha">Senha</label>
+        <div class="inp"><input id="g-senha" type="password" autocomplete="current-password" required></div></div>
+      <button class="btn primary" type="submit" id="gateIn">Entrar</button>
+      <div class="gate-err" id="gateErr" role="alert"></div>
+    </div>
+  </form>
+</div>
 
 <dialog class="dlg" id="sellDlg" aria-labelledby="sellTitle">
   <form id="sellForm">
@@ -1318,18 +1328,19 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     return cq;
   }
   function setUser(u){
-    var a = u ? u.id : null, b = cUser ? cUser.id : null;
-    if (a === b) return;  // token refresh: same account, keep the object the pending syncs compare against
+    var a = u ? u.id : null, b = cUser ? cUser.id : null, first = !authKnown;
+    authKnown = true;
+    if (a === b) { renderGate(); if (first && !u) $('g-email').focus(); return; }  // same account (token refresh): keep the object pending syncs compare against
     clearTimeout(cT); cT = null;
     cUser = u || null;
-    if (!cUser) { cMeta = {}; cSaveMeta(); cSet('off'); return; }
+    renderGate();
+    if (!cUser) { cMeta = {}; cSaveMeta(); cSet('off'); $('g-email').focus(); return; }
     cSet('sync'); cSync();
   }
 
   function renderCloud(){
     $('cloudSec').hidden = !CLOUD_CFG;
     if (!CLOUD_CFG) return;
-    $('cloudForm').hidden = !sb || !!cUser;
     $('cloudOut').hidden = !cUser;
     var email = esc(cUser ? cUser.email : '');
     $('cloudInfo').innerHTML = !sb
@@ -1343,17 +1354,28 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
           }[cStat] || 'Conectado como <b>' + email + '</b>.';
   }
 
-  $('cloudForm').onsubmit = function(e){
+  // Login screen: covers the app while the cloud is set up and nobody is signed in.
+  var authKnown = false;
+  function renderGate(){
+    var show = !!sb && !cUser;
+    $('gate').hidden = !show;
+    if (!show) return;
+    $('gateFields').hidden = !authKnown;
+    $('gateMsg').textContent = authKnown ? 'Entre com sua conta para ver seus modelos, vendas e configurações.' : 'Carregando…';
+  }
+  $('gateForm').onsubmit = function(e){
     e.preventDefault();
     if (!sb) return;
-    var btn = $('cloudIn'); btn.disabled = true;
-    sb.auth.signInWithPassword({ email: $('cl-email').value.trim(), password: $('cl-senha').value }).then(function(r){
+    var btn = $('gateIn'); btn.disabled = true; $('gateErr').textContent = '';
+    sb.auth.signInWithPassword({ email: $('g-email').value.trim(), password: $('g-senha').value }).then(function(r){
       if (r.error) throw r.error;
-      $('cl-senha').value = '';
-      toast('Conectado. Sincronizando com a nuvem…');
+      $('g-senha').value = '';
     }).catch(function(err){
       var m = String(err && err.message || '');
-      toast(/invalid login/i.test(m) ? 'E-mail ou senha incorretos.' : /not confirmed/i.test(m) ? 'Confirme o e-mail da conta antes de entrar.' : 'Não foi possível entrar: ' + m, true);
+      $('gateErr').textContent = /invalid login/i.test(m) ? 'E-mail ou senha incorretos.'
+        : /not confirmed/i.test(m) ? 'Confirme o e-mail da conta antes de entrar.'
+        : /fetch|network/i.test(m) ? 'Sem conexão com a internet. Tente de novo.'
+        : 'Não foi possível entrar: ' + m;
     }).then(function(){ btn.disabled = false; });
   };
   $('cloudSync').onclick = function(){ cSync().then(function(){ if (cStat === 'ok') toast('Tudo sincronizado.'); }); };
@@ -1429,7 +1451,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
       });
     }).catch(function(e){ if (fh) setFileStatus('ask'); fileFail(e); });
   }
-  renderCloud();
+  renderCloud(); renderGate();
   // Supabase calls inside this callback can deadlock, so the sync runs on the next tick.
   if (sb) sb.auth.onAuthStateChange(function(ev, session){ var u = session ? session.user : null; setTimeout(function(){ setUser(u); }, 0); });
 })();
