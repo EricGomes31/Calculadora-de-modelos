@@ -424,6 +424,14 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
             <div class="inp"><span class="u pre">R$</span><input id="g-valor" class="num" type="text" inputmode="decimal" placeholder="0,00" required></div>
             <span class="hint">Com o frete, se teve.</span></div>
         </div>
+        <div class="fields" id="gFil" hidden style="margin-top:14px">
+          <div class="field"><label class="lbl" for="g-kg">Quantos kg vieram</label>
+            <div class="inp"><input id="g-kg" class="num" type="text" inputmode="decimal" value="1"><span class="u">kg</span></div>
+            <span class="hint">Some todos os rolos da compra.</span></div>
+          <div class="field"><label class="lbl" for="g-mat">Atualizar o preço de</label>
+            <div class="inp"><select id="g-mat"></select></div></div>
+          <div class="field wide"><p class="explain" id="gFilPrev" style="margin:0"></p></div>
+        </div>
         <datalist id="gSug"></datalist>
         <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Adicionar gasto</button></div>
       </form>
@@ -1152,6 +1160,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     var sug = gastoSugestoes();
     $('gSug').innerHTML = Object.keys(sug).map(function(k){ return '<option value="' + esc(k) + '">'; }).join('');
     if (!$('g-data').value) $('g-data').value = hoje();
+    fillMatSelect(); gFilSync();
     var per = periodOptions($('gPer'), gastos, state.gPer);
     var inPer = function(v){ return per === 'all' || v.data.slice(0, 7) === per; };
     var list = gastos.filter(inPer), total = 0, cats = {};
@@ -1174,25 +1183,76 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     $('gLista').innerHTML = '<table class="tbl"><thead><tr><th>Data</th><th>O que comprou</th><th class="r">Valor</th><th></th></tr></thead><tbody>' +
       list.map(function(g){
         return '<tr><td class="dt">' + g.data.split('-').reverse().join('/') + '</td>' +
-          '<td class="nm">' + esc(g.desc) + '<span class="s2">' + esc(g.cat) + '</span></td>' +
+          '<td class="nm">' + esc(g.desc) + '<span class="s2">' + esc(g.cat) +
+            (g.kg ? ' · ' + num2.format(g.kg) + ' kg · ' + money(g.precoKg) + '/kg' : '') + '</span></td>' +
           '<td class="r">' + money(g.valor) + '</td>' +
           '<td class="r"><button type="button" class="xbtn" data-gdel="' + g.id + '" title="Excluir gasto" aria-label="Excluir gasto">×</button></td></tr>';
       }).join('') + '</tbody></table>';
   }
+  /* Filament purchases: price per kg, optionally copied to the filament in Configurações. */
+  var NOVO = '__novo', gMatTouched = false;
+  function fillMatSelect(){
+    var sel = $('g-mat'), cur = sel.value;
+    sel.innerHTML = '<option value="">Não atualizar</option>' +
+      state.cfg.materiais.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.nome || 'Filamento sem nome') + '</option>'; }).join('') +
+      '<option value="' + NOVO + '">+ Cadastrar como filamento novo</option>';
+    if ([].some.call(sel.options, function(o){ return o.value === cur; })) sel.value = cur;
+  }
+  // Guess the filament from the description ("PLA Preto 1 kg" matches "PLA Preto").
+  function guessMat(desc){
+    var d = desc.trim().toLowerCase(); if (!d) return '';
+    var best = '', len = 0;
+    state.cfg.materiais.forEach(function(m){
+      var nm = (m.nome || '').trim().toLowerCase();
+      if (nm && (d === nm || d.indexOf(nm) >= 0 || nm.indexOf(d) >= 0) && nm.length > len) { best = m.id; len = nm.length; }
+    });
+    return best;
+  }
+  var precoStr = function(v){ return String(r2(v)).replace('.', ','); };
+  function gFilSync(){
+    var on = $('g-cat').value === 'Filamento';
+    $('gFil').hidden = !on;
+    if (!on) return;
+    if (!gMatTouched) $('g-mat').value = guessMat($('g-desc').value);
+    var valor = n($('g-valor').value), kg = n($('g-kg').value), mat = byId(state.cfg.materiais, $('g-mat').value);
+    if (!(valor > 0) || !(kg > 0)) { $('gFilPrev').textContent = 'Preencha o valor e os kg para ver o preço por kg.'; return; }
+    var pk = valor / kg, nome = esc($('g-desc').value.trim() || 'Filamento novo');
+    $('gFilPrev').innerHTML = 'Sai a <b>' + money(pk) + ' por kg</b>. ' + (
+      mat ? 'O preço de <b>' + esc(mat.nome) + '</b> nos cálculos vai de ' + money(n(mat.precoKg)) + ' para <b>' + money(r2(pk)) + '</b>/kg.'
+      : $('g-mat').value === NOVO ? '<b>' + nome + '</b> vai ser cadastrado em Configurações com esse preço.'
+      : 'Escolha o filamento acima para atualizar o preço usado nos cálculos.');
+  }
+  $('g-mat').addEventListener('change', function(){ gMatTouched = true; gFilSync(); });
+  $('gForm').addEventListener('input', function(e){ if (e.target.id !== 'g-mat') gFilSync(); });
+  $('g-cat').addEventListener('change', gFilSync);
+
   // Picking a known name fills in its category.
-  $('g-desc').addEventListener('change', function(){ var c = gastoSugestoes()[this.value.trim()]; if (c && CATS.indexOf(c) >= 0) $('g-cat').value = c; });
+  $('g-desc').addEventListener('change', function(){ var c = gastoSugestoes()[this.value.trim()]; if (c && CATS.indexOf(c) >= 0) $('g-cat').value = c; gFilSync(); });
   $('gForm').addEventListener('submit', function(e){
     e.preventDefault();
     var desc = $('g-desc').value.trim(), valor = r2(n($('g-valor').value));
     if (!desc) return;
     if (!(valor > 0)) { toast('Informe o valor do gasto.', true); $('g-valor').focus(); return; }
-    var data = $('g-data').value || hoje();
-    gastos.push({ id: uid(), data: data, desc: desc, cat: $('g-cat').value, valor: valor });
+    var data = $('g-data').value || hoje(), cat = $('g-cat').value, g = { id: uid(), data: data, desc: desc, cat: cat, valor: valor }, extra = '';
+    if (cat === 'Filamento') {
+      var kg = n($('g-kg').value);
+      if (!(kg > 0)) { toast('Informe quantos kg vieram.', true); $('g-kg').focus(); return; }
+      g.kg = r2(kg); g.precoKg = r2(valor / kg);
+      var mid = $('g-mat').value, mat = byId(state.cfg.materiais, mid);
+      if (mid === NOVO) { mat = { id: uid(), nome: desc, precoKg: '' }; state.cfg.materiais.push(mat); }
+      if (mat) {
+        mat.precoKg = precoStr(g.precoKg);
+        extra = ' Preço de ' + (mat.nome || 'filamento') + ' atualizado para ' + money(g.precoKg) + '/kg.';
+        refreshAll(); renderSaved();
+      }
+    }
+    gastos.push(g);
     gastos.sort(function(a, b){ return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
     state.gPer = data.slice(0, 7);
-    store(KEY_GASTOS, gastos); store(KEY_STATE, state); flushFile(); renderGastos();
-    $('g-desc').value = ''; $('g-valor').value = ''; $('g-desc').focus();
-    toast('Gasto adicionado: ' + desc + ', ' + money(valor) + '.');
+    store(KEY_GASTOS, gastos); store(KEY_STATE, state); flushFile();
+    $('g-desc').value = ''; $('g-valor').value = ''; $('g-kg').value = '1'; gMatTouched = false;
+    renderGastos(); $('g-desc').focus();
+    toast('Gasto adicionado: ' + desc + ', ' + money(valor) + '.' + extra);
   });
   $('gPer').onchange = function(){ state.gPer = this.value; store(KEY_STATE, state); renderGastos(); };
   $('gLista').addEventListener('click', function(e){
