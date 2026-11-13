@@ -470,6 +470,25 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
         </div>
       </section>
 
+      <section class="sec" id="cloudSec" hidden>
+        <div class="sec-h"><h2>Conta na nuvem</h2><p>Os mesmos modelos, vendas e configurações no celular e no computador.</p></div>
+        <p class="explain" id="cloudInfo" style="margin-top:0"></p>
+        <form id="cloudForm" hidden>
+          <div class="fields" style="margin-top:12px">
+            <div class="field"><label class="lbl" for="cl-email">E-mail</label>
+              <div class="inp"><input id="cl-email" type="email" autocomplete="username" required></div></div>
+            <div class="field"><label class="lbl" for="cl-senha">Senha</label>
+              <div class="inp"><input id="cl-senha" type="password" autocomplete="current-password" required></div></div>
+          </div>
+          <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit" id="cloudIn">Entrar</button></div>
+        </form>
+        <div class="actions" id="cloudOut" style="margin-top:12px" hidden>
+          <button class="btn" type="button" id="cloudSync">Sincronizar agora</button>
+          <button class="btn" type="button" id="cloudExit">Sair da conta</button>
+        </div>
+        <div class="toast"></div>
+      </section>
+
       <section class="sec" id="fileSec">
         <div class="sec-h"><h2>Arquivo de dados</h2><p>Modelos, vendas e configurações gravados num arquivo no seu computador.</p></div>
         <p class="explain" id="fileInfo" style="margin-top:0"></p>
@@ -522,8 +541,11 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   </form>
 </dialog>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function(){
+  // Supabase project (the publishable/anon key is meant to be public; row level security protects the data).
+  var SUPA_URL = 'https://hqaihhfymmppuxwqhyjh.supabase.co', SUPA_KEY = 'sb_publishable_8j0w4JtLtC9oM6vf-dsS8g_Dtvhmnsx';
   var KEY_STATE = 'calc3d.state.v2', KEY_SAVED = 'calc3d.modelos.v2', KEY_VENDAS = 'calc3d.vendas.v1';
   var uid = function(){ return Math.random().toString(36).slice(2, 9); };
   var DEFAULTS = {
@@ -572,6 +594,7 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
       if (!fileOk && !quotaWarned) { quotaWarned = true; toast('O navegador ficou sem espaço (provavelmente pelas fotos). Crie um arquivo de dados em Configurações para não perder nada.', true); }
     }
     scheduleFileSave();
+    scheduleCloudSave();
   }
   function getPath(p){ return p.split('.').reduce(function(o, k){ return o[k]; }, state); }
   function setPath(p, v){ var ks = p.split('.'), last = ks.pop(); ks.reduce(function(o, k){ return o[k]; }, state)[last] = v; }
@@ -1140,8 +1163,8 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   function setFileStatus(s){
     fstat = s;
     var name = esc(fh ? fh.name : '');
-    var chip = { ok: ['ok', 'Salvo em ' + (fh ? fh.name : '')], ask: ['', 'Arquivo desconectado'], err: ['bad', 'Erro ao gravar arquivo'], none: ['', 'Salvo só neste navegador'], off: ['', 'Salvo só neste navegador'] }[s];
-    $('fchip').className = 'fchip ' + chip[0]; $('fchipT').textContent = chip[1];
+    fileChip = { ok: ['ok', 'Salvo em ' + (fh ? fh.name : '')], ask: ['', 'Arquivo desconectado'], err: ['bad', 'Erro ao gravar arquivo'], none: ['', 'Salvo só neste navegador'], off: ['', 'Salvo só neste navegador'] }[s];
+    renderChip();
     $('fbanner').hidden = !(s === 'ask' || s === 'err');
     $('fbannerT').innerHTML = s === 'err'
       ? 'Não foi possível gravar no arquivo <b>' + name + '</b>. Suas alterações estão guardadas neste navegador. Clique em Reconectar.'
@@ -1156,12 +1179,20 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     $('fCreate').hidden = $('fOpen').hidden = !FS;
     $('fOpen').textContent = fh ? 'Trocar de arquivo' : 'Abrir arquivo existente';
     $('fDisc').hidden = !fh;
-    $('vNudge').hidden = !(s === 'none' || s === 'off');
-    $('vNudgeT').textContent = s === 'off'
-      ? 'As vendas estão só neste navegador. Para gravar num arquivo no computador, abra a calculadora no Chrome ou no Edge.'
-      : 'As vendas estão só neste navegador. Grave tudo num arquivo no computador para não perder o histórico.';
   }
-  function goFileSec(){ showTab('cfg'); $('fileSec').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  var fileChip = ['', ''];
+  // The status chip shows the cloud when signed in, otherwise the data file.
+  function renderChip(){
+    var c = cUser ? ({ ok: ['ok', 'Salvo na nuvem'], sync: ['', 'Salvando na nuvem…'], err: ['bad', 'Erro ao salvar na nuvem'] }[cStat] || ['', 'Conectando à nuvem…']) : fileChip;
+    $('fchip').className = 'fchip ' + c[0]; $('fchipT').textContent = c[1];
+    $('vNudge').hidden = !!cUser || !(fstat === 'none' || fstat === 'off');
+    $('vNudgeT').textContent = CLOUD_CFG
+      ? 'As vendas estão só neste navegador. Entre na sua conta na nuvem para não perder o histórico e ver tudo no celular.'
+      : fstat === 'off'
+        ? 'As vendas estão só neste navegador. Para gravar num arquivo no computador, abra a calculadora no Chrome ou no Edge.'
+        : 'As vendas estão só neste navegador. Grave tudo num arquivo no computador para não perder o histórico.';
+  }
+  function goFileSec(){ showTab('cfg'); $(CLOUD_CFG ? 'cloudSec' : 'fileSec').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   $('fchip').onclick = goFileSec;
   $('vNudgeGo').onclick = goFileSec;
 
@@ -1215,6 +1246,126 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
       applySnapshot(d); flushFile(); toast('Cópia importada.');
     }).catch(fileFail);
   };
+
+  /* ---------- cloud sync (Supabase) ---------- */
+  // One row per user in table calc_dados holding the same snapshot as the data file.
+  // cMeta remembers, per browser, which account and cloud version the local data last matched.
+  var CLOUD_CFG = /^https:\/\//.test(SUPA_URL);
+  var KEY_CLOUD = 'calc3d.nuvem.v1';
+  var sb = null, cUser = null, cStat = 'off', cT = null, cq = Promise.resolve(), cPulling = false;
+  var cMeta = load(KEY_CLOUD, {}) || {};
+  try { if (CLOUD_CFG && window.supabase) sb = window.supabase.createClient(SUPA_URL, SUPA_KEY); } catch (e) { sb = null; }
+  function cSaveMeta(){ try { localStorage.setItem(KEY_CLOUD, JSON.stringify(cMeta)); } catch (e) {} }
+  function hashStr(s){ var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + '.' + s.length; }
+  function cSet(s){ cStat = s; renderCloud(); renderChip(); }
+  function cFail(e){ console.warn('[nuvem]', e); if (cUser) cSet('err'); }
+
+  function scheduleCloudSave(){ if (!cUser || cPulling) return; clearTimeout(cT); cT = setTimeout(cPush, 1200); }
+  function upload(u, h){
+    cSet('sync');
+    return sb.from('calc_dados').upsert({ user_id: u.id, dados: snapshot(), atualizado_em: new Date().toISOString() })
+      .select('atualizado_em').single().then(function(r){
+        if (r.error) throw r.error;
+        if (cUser !== u) return;
+        cMeta = { uid: u.id, at: r.data.atualizado_em, h: h }; cSaveMeta(); cSet('ok');
+      });
+  }
+  function cPush(){
+    clearTimeout(cT); cT = null;
+    var u = cUser;
+    if (!u) return cq;
+    cq = cq.then(function(){
+      // Never overwrite the cloud before this browser has synced with this account once.
+      if (cUser !== u || cMeta.uid !== u.id) return;
+      var h = hashStr(localKey());
+      if (h === cMeta.h) { cSet('ok'); return; }
+      return upload(u, h);
+    }).catch(cFail);
+    return cq;
+  }
+  function pull(u, row, msg){
+    cPulling = true;
+    try { applySnapshot(row.dados); } finally { cPulling = false; }
+    scheduleFileSave();
+    cMeta = { uid: u.id, at: row.atualizado_em, h: hashStr(localKey()) }; cSaveMeta(); cSet('ok');
+    if (msg) toast(msg);
+  }
+  // Compare this browser with the cloud and pull, push, or ask which one to keep.
+  function cSync(){
+    clearTimeout(cT); cT = null;
+    var u = cUser;
+    if (!u) return cq;
+    cq = cq.then(function(){
+      if (cUser !== u) return;
+      cSet('sync');
+      return sb.from('calc_dados').select('dados, atualizado_em').eq('user_id', u.id).maybeSingle().then(function(r){
+        if (r.error) throw r.error;
+        if (cUser !== u) return;
+        var row = r.data && validSnap(r.data.dados) ? r.data : null;
+        var local = localKey(), h = hashStr(local), first = cMeta.uid !== u.id, dirty = first || h !== cMeta.h;
+        if (!row) { cMeta = { uid: u.id }; return upload(u, h); }
+        if (snapKey(row.dados) === local) { cMeta = { uid: u.id, at: row.atualizado_em, h: h }; cSaveMeta(); cSet('ok'); return; }
+        if (first) {
+          var temLocal = saved.length || vendas.length;
+          if (temLocal && !confirm('Esta conta já tem dados na nuvem, diferentes dos deste aparelho.\n\nOK: usar os dados da nuvem neste aparelho.\nCancelar: substituir os dados da nuvem pelos deste aparelho.')) { cMeta = { uid: u.id }; return upload(u, h); }
+          return pull(u, row, 'Dados da nuvem carregados.');
+        }
+        if (row.atualizado_em === cMeta.at) return dirty ? upload(u, h) : pull(u, row);
+        if (dirty && !confirm('Os dados mudaram em outro aparelho e também neste.\n\nOK: usar os dados da nuvem (do outro aparelho).\nCancelar: manter os deste aparelho e enviar para a nuvem.')) return upload(u, h);
+        return pull(u, row, 'Dados atualizados com a nuvem.');
+      });
+    }).catch(cFail);
+    return cq;
+  }
+  function setUser(u){
+    var a = u ? u.id : null, b = cUser ? cUser.id : null;
+    if (a === b) return;  // token refresh: same account, keep the object the pending syncs compare against
+    clearTimeout(cT); cT = null;
+    cUser = u || null;
+    if (!cUser) { cMeta = {}; cSaveMeta(); cSet('off'); return; }
+    cSet('sync'); cSync();
+  }
+
+  function renderCloud(){
+    $('cloudSec').hidden = !CLOUD_CFG;
+    if (!CLOUD_CFG) return;
+    $('cloudForm').hidden = !sb || !!cUser;
+    $('cloudOut').hidden = !cUser;
+    var email = esc(cUser ? cUser.email : '');
+    $('cloudInfo').innerHTML = !sb
+      ? 'Não foi possível conectar à nuvem (sem internet?). Os dados continuam salvos neste navegador; recarregue a página quando a internet voltar.'
+      : !cUser
+        ? 'Entre com sua conta para usar os mesmos dados no celular e no computador. Sem entrar, os dados ficam só neste navegador.'
+        : {
+            ok: 'Conectado como <b>' + email + '</b>. Cada alteração é salva na nuvem automaticamente.',
+            sync: 'Conectado como <b>' + email + '</b>. Salvando…',
+            err: 'Conectado como <b>' + email + '</b>, mas não foi possível falar com a nuvem. Suas alterações estão guardadas neste navegador; clique em Sincronizar agora quando a internet voltar.'
+          }[cStat] || 'Conectado como <b>' + email + '</b>.';
+  }
+
+  $('cloudForm').onsubmit = function(e){
+    e.preventDefault();
+    if (!sb) return;
+    var btn = $('cloudIn'); btn.disabled = true;
+    sb.auth.signInWithPassword({ email: $('cl-email').value.trim(), password: $('cl-senha').value }).then(function(r){
+      if (r.error) throw r.error;
+      $('cl-senha').value = '';
+      toast('Conectado. Sincronizando com a nuvem…');
+    }).catch(function(err){
+      var m = String(err && err.message || '');
+      toast(/invalid login/i.test(m) ? 'E-mail ou senha incorretos.' : /not confirmed/i.test(m) ? 'Confirme o e-mail da conta antes de entrar.' : 'Não foi possível entrar: ' + m, true);
+    }).then(function(){ btn.disabled = false; });
+  };
+  $('cloudSync').onclick = function(){ cSync().then(function(){ if (cStat === 'ok') toast('Tudo sincronizado.'); }); };
+  $('cloudExit').onclick = function(){
+    cPush().then(function(){ return sb.auth.signOut(); }).then(function(){ toast('Você saiu da conta. Os dados continuam neste navegador.'); });
+  };
+  document.addEventListener('visibilitychange', function(){
+    if (!cUser) return;
+    if (document.visibilityState === 'hidden') { if (cT) cPush(); }
+    else cSync();
+  });
+  window.addEventListener('online', function(){ if (cUser) cSync(); });
 
   /* ---------- product photo ---------- */
   function fotoCss(f){ return typeof f === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(f) ? "background-image:url('" + f + "')" : ''; }
@@ -1278,5 +1429,8 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
       });
     }).catch(function(e){ if (fh) setFileStatus('ask'); fileFail(e); });
   }
+  renderCloud();
+  // Supabase calls inside this callback can deadlock, so the sync runs on the next tick.
+  if (sb) sb.auth.onAuthStateChange(function(ev, session){ var u = session ? session.user : null; setTimeout(function(){ setUser(u); }, 0); });
 })();
 </script>
