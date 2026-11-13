@@ -1,0 +1,1282 @@
+<title>Calculadora de Custos 3D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef1f0; --panel:#fbfcfb; --panel-2:#f3f6f5; --ink:#14201c; --ink-2:#3f4d48; --muted:#667570;
+  --line:#d4dcd9; --line-2:#e3e9e7; --accent:#0f6b5c; --accent-ink:#ffffff; --accent-soft:#dcefea;
+  --good:#0a7a34; --good-bg:#e1f3e7; --bad:#b92b2b; --bad-bg:#fbe4e4; --warn-bg:#fff2cf; --warn-ink:#7a5200;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7;
+  --shadow:0 1px 2px rgba(20,32,28,.06),0 6px 24px rgba(20,32,28,.06);
+  --f-display:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1412; --panel:#171d1b; --panel-2:#1d2421; --ink:#ecf1ef; --ink-2:#c3cdc9; --muted:#8e9b96;
+    --line:#2e3834; --line-2:#252e2b; --accent:#43c2a8; --accent-ink:#06201a; --accent-soft:#1a3530;
+    --good:#4fd37d; --good-bg:#15301f; --bad:#f07474; --bad-bg:#3a1a1a; --warn-bg:#3a2e10; --warn-ink:#f4cf72;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1412; --panel:#171d1b; --panel-2:#1d2421; --ink:#ecf1ef; --ink-2:#c3cdc9; --muted:#8e9b96;
+  --line:#2e3834; --line-2:#252e2b; --accent:#43c2a8; --accent-ink:#06201a; --accent-soft:#1a3530;
+  --good:#4fd37d; --good-bg:#15301f; --bad:#f07474; --bad-bg:#3a1a1a; --warn-bg:#3a2e10; --warn-ink:#f4cf72;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none !important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body)}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:24px 64px}
+@media (min-width:700px){.wrap{padding-inline:28px}}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+button{font-family:inherit}
+
+/* header + tabs */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px 24px;margin-bottom:20px}
+.eyebrow{font:500 12px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font-size:clamp(26px,4vw,34px);font-weight:700;margin-top:6px}
+.tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;flex-wrap:wrap}
+.tab{border:0;background:transparent;color:var(--ink-2);font:500 14px var(--f-body);padding:8px 14px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.tab:hover{background:var(--panel-2)}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.tab .cnt{font:500 11px var(--f-mono);background:var(--panel-2);color:var(--ink-2);border-radius:99px;padding:1px 7px}
+.tab[aria-selected="true"] .cnt{background:rgba(255,255,255,.2);color:inherit}
+
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:14px}
+.banner p{margin:0;flex:1 1 280px}
+
+/* layout */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,400px);gap:24px;align-items:start}
+@media (max-width:920px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.narrow{max-width:780px}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.sec-h{margin-bottom:14px}
+.sec-h h2{font-size:17px;font-weight:600;display:flex;align-items:center;gap:10px}
+.step{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font:600 13px var(--f-mono)}
+.sec-h p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field.wide{grid-column:1/-1}
+.lbl{font-size:13px;font-weight:500;color:var(--ink-2)}
+.hint{font-size:12.5px;color:var(--muted);line-height:1.4}
+.inp{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:7px;background:var(--panel);overflow:hidden}
+.inp:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.inp input,.inp select{flex:1;min-width:0;width:100%;border:0;background:transparent;color:var(--ink);font:15px var(--f-body);padding:9px 10px;outline:none}
+.inp input.num{font-family:var(--f-mono);font-size:14.5px;font-variant-numeric:tabular-nums}
+.inp select{cursor:pointer}
+.inp select option{background:var(--panel);color:var(--ink)}
+.inp .u{display:flex;align-items:center;padding:0 10px;font:12px var(--f-mono);color:var(--muted);background:var(--panel-2);border-left:1px solid var(--line-2);white-space:nowrap}
+.inp .u.pre{border-left:0;border-right:1px solid var(--line-2)}
+.time{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stepper{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--panel)}
+.stepper button{width:40px;border:0;background:var(--panel-2);color:var(--ink);font-size:18px;cursor:pointer}
+.stepper button:hover{background:var(--line-2)}
+.stepper input{flex:1;min-width:0;text-align:center;border:0;background:transparent;color:var(--ink);font:500 15px var(--f-mono);padding:9px 4px;outline:none}
+.stepper:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* list editors */
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:grid;gap:8px;align-items:center}
+.rows.mfil .row{grid-template-columns:minmax(0,1fr) 120px 84px 34px}
+.rows.mace .row{grid-template-columns:minmax(0,1fr) 100px 84px 34px}
+.rows.cmat .row,.rows.cite .row{grid-template-columns:minmax(0,1fr) 150px 34px}
+.rows.ccan .row{grid-template-columns:minmax(0,1fr) 96px 110px 96px 34px}
+.row.head{font-size:12px;color:var(--muted);font-weight:500}
+.row .cost{font:13px var(--f-mono);color:var(--ink-2);text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:560px){
+  .rows .row{grid-template-columns:1fr 1fr 34px !important}
+  .rows.ccan .row{grid-template-columns:1fr 1fr 1fr 34px !important}
+  .rows .row > .name{grid-column:1/-1}
+  .rows .row > .cost{text-align:left}
+  .row.head{display:none}
+  .rows .row{padding-bottom:10px;border-bottom:1px dashed var(--line)}
+}
+.xbtn{width:34px;height:34px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+.xbtn:hover{border-color:var(--line);color:var(--bad)}
+.under{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-top:10px}
+.add{border:1px dashed var(--line);background:transparent;color:var(--accent);font:500 13px var(--f-body);padding:7px 12px;border-radius:7px;cursor:pointer}
+.add:hover{border-color:var(--accent)}
+.link{border:0;background:none;padding:0;color:var(--accent);font:500 13px var(--f-body);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.check{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* markup chooser */
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--panel);color:var(--ink);font:500 14px var(--f-mono);padding:8px 12px;border-radius:7px;cursor:pointer;min-width:56px}
+.seg button:hover{border-color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.seg .inp{width:120px}
+.explain{margin-top:12px;font-size:14px;background:var(--panel-2);border-radius:8px;padding:10px 12px;color:var(--ink-2)}
+.explain b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+
+/* summary */
+.summary{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:flex;flex-direction:column;gap:14px}
+@media (max-width:920px){.summary{position:static}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:var(--shadow)}
+.gcode{font:12px/1.6 var(--f-mono);color:var(--muted);border-bottom:1px dashed var(--line);padding-bottom:10px;margin-bottom:12px;overflow-wrap:anywhere}
+.gcode b{color:var(--ink-2);font-weight:500}
+.model-name{font:600 15px var(--f-body);overflow-wrap:anywhere}
+.big-l{font-size:13px;color:var(--muted);margin-top:6px}
+.big{font:700 42px/1.05 var(--f-display);color:var(--ink)}
+.sub{font-size:13px;color:var(--ink-2);margin-top:6px}
+.sub b{font-family:var(--f-mono);font-weight:500;color:var(--ink)}
+details.why{margin-top:14px;border-top:1px solid var(--line-2);padding-top:10px}
+details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--accent);list-style-position:inside}
+.bar{display:flex;gap:2px;height:14px;margin:12px 0;border-radius:4px;overflow:hidden;background:var(--line-2)}
+.bar i{display:block;height:100%;min-width:0;transition:flex-grow .25s}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.legend li{display:grid;grid-template-columns:10px minmax(0,1fr) auto 44px;gap:8px;align-items:center}
+.legend .sw{width:10px;height:10px;border-radius:2px}
+.legend .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.legend .p{font:12px var(--f-mono);color:var(--muted);text-align:right}
+.legend li.zero{opacity:.45}
+.card h3{font-size:16px;font-weight:600}
+.card .h3-sub{font-size:13px;color:var(--muted);margin:2px 0 12px}
+.chans{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.ch{border:1px solid var(--line);border-radius:9px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.ch-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ch .cn{font-weight:600;font-size:14px;overflow-wrap:anywhere}
+.ch .cfee{font:11.5px var(--f-mono);color:var(--muted);white-space:nowrap}
+.ch .cp-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ch .cp{font:700 26px/1.1 var(--f-display)}
+.ch .cp-l{font-size:12px;color:var(--muted)}
+.ch .cm{font-size:13px;color:var(--ink-2)}
+.ch .cm b{font-family:var(--f-mono);font-weight:500;color:var(--ink)}
+.ch .cm b.pos{color:var(--good)} .ch .cm b.neg{color:var(--bad)}
+.ch .ctest{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.ch .ctest label{font-size:12.5px;color:var(--muted)}
+.ch .ctest .inp{width:130px}
+.ch .ctest .inp input{padding:6px 8px;font-size:14px}
+.ch .cmin{font-size:12px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:4px;font:500 11.5px var(--f-body);padding:2px 8px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--good-bg);color:var(--good)}
+.pill.low{background:var(--warn-bg);color:var(--warn-ink)}
+.pill.loss{background:var(--bad-bg);color:var(--bad)}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);font:500 14px var(--f-body);padding:9px 14px;border-radius:7px;cursor:pointer}
+.btn:hover{border-color:var(--ink-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.sm{padding:6px 10px;font-size:13px}
+.toast{font-size:13px;color:var(--good);min-height:20px;margin-top:8px}
+
+/* saved */
+.saved{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.saved li{border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px;background:var(--panel)}
+.saved .sn{font-weight:600;overflow-wrap:anywhere}
+.saved .sm{font:12.5px var(--f-mono);color:var(--muted)}
+.saved .sp{font:600 20px var(--f-display)}
+.saved .sa{display:flex;gap:6px;margin-top:6px}
+.empty{color:var(--muted);font-size:14px;background:var(--panel);border:1px dashed var(--line);border-radius:10px;padding:20px}
+.readout{font:12.5px var(--f-mono);color:var(--muted);margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 18px}
+.readout b{color:var(--ink);font-weight:500}
+
+/* mobile bottom bar */
+.mbar{display:none}
+@media (max-width:920px){
+  .mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:5;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--panel);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+  .mbar .ml{font-size:12px;color:var(--muted)}
+  .mbar .mv{font:700 18px var(--f-display)}
+  body.has-mbar .wrap{padding-bottom:110px}
+}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font:12px var(--f-mono);padding:6px 9px;border-radius:6px;z-index:10;white-space:nowrap}
+
+/* product photo */
+.nomefoto{display:flex;align-items:center;gap:10px}
+.nomefoto .inp{flex:1;min-width:0}
+.foto{flex:none;width:64px;height:64px;padding:0;border-radius:8px;border:1px dashed var(--line);background:var(--panel-2) center/cover no-repeat;color:var(--accent);font:500 12px var(--f-body);cursor:pointer}
+.foto:hover,.foto.drag{border-color:var(--accent)}
+.foto.has{border-style:solid;color:transparent}
+.tn{display:flex;align-items:center;gap:10px;min-width:0}
+.thumb{flex:none;width:32px;height:32px;border-radius:6px;border:1px solid var(--line-2);background:var(--panel-2) center/cover no-repeat}
+.thumb.lg{width:44px;height:44px;border-radius:7px}
+.thumb.xl{width:56px;height:56px;border-radius:8px}
+
+/* data file */
+.fchip{display:inline-flex;align-items:center;gap:6px;margin-top:10px;max-width:100%;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);font:500 12px var(--f-mono);padding:4px 10px;border-radius:99px;cursor:pointer}
+.fchip:hover{border-color:var(--ink-2)}
+.fchip .dot{width:8px;height:8px;border-radius:50%;background:var(--warn-ink);flex:none}
+.fchip.ok .dot{background:var(--good)}
+.fchip.bad .dot{background:var(--bad)}
+.fchip span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.banner.warn{background:var(--warn-bg);border-color:var(--warn-ink)}
+.explain b.pos,.pos{color:var(--good)}
+.explain b.neg,.neg{color:var(--bad)}
+
+/* sales */
+.vhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-bottom:14px}
+.vhead .inp{width:240px;max-width:100%}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.kpi .kl{font-size:13px;color:var(--muted)}
+.kpi .kv{font:700 28px/1.15 var(--f-display);margin-top:2px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kpi .kv.pos{color:var(--good)}
+.kpi .kv.neg{color:var(--bad)}
+.kpi .ks{font:12px var(--f-mono);color:var(--muted);margin-top:2px}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px;margin-bottom:14px;align-items:start}
+.tscroll{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{font-size:12px;font-weight:500;color:var(--muted);text-align:left;padding:0 8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:8px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl th:first-child,.tbl td:first-child{padding-left:0}
+.tbl th:last-child,.tbl td:last-child{padding-right:0}
+.tbl .r{text-align:right;white-space:nowrap}
+.tbl td.r{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.tbl .nm{overflow-wrap:anywhere;min-width:120px}
+.tbl .s2{display:block;font:12px var(--f-mono);color:var(--muted)}
+.tbl .dt{font:12.5px var(--f-mono);color:var(--ink-2);white-space:nowrap}
+.xbtn.armed{width:auto;padding:0 8px;font-size:12.5px;color:var(--bad);border-color:var(--bad)}
+.dlg{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);padding:20px;width:min(440px,calc(100vw - 32px));box-shadow:var(--shadow)}
+.dlg::backdrop{background:rgba(10,16,14,.5)}
+.dlg h2{font-size:19px;font-weight:600}
+.dlg .fields{grid-template-columns:1fr 1fr;margin:14px 0}
+@media (max-width:420px){.dlg .fields{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Impressão 3D · custo e preço</div>
+      <h1>Calculadora 3D</h1>
+      <button class="fchip" type="button" id="fchip" title="Onde os dados estão salvos"><span class="dot"></span><span id="fchipT"></span></button>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Seções">
+      <button class="tab" role="tab" id="tab-calc" data-tab="calc">Calcular peça</button>
+      <button class="tab" role="tab" id="tab-saved" data-tab="saved">Modelos salvos <span class="cnt" id="savedCount">0</span></button>
+      <button class="tab" role="tab" id="tab-vendas" data-tab="vendas">Vendas</button>
+      <button class="tab" role="tab" id="tab-cfg" data-tab="cfg">Configurações</button>
+    </nav>
+  </header>
+
+  <div class="banner warn" id="fbanner" hidden>
+    <p id="fbannerT"></p>
+    <button class="btn sm primary" type="button" id="fReconn">Reconectar</button>
+  </div>
+
+  <!-- ============ CALCULAR ============ -->
+  <section id="view-calc" role="tabpanel" aria-labelledby="tab-calc">
+    <div class="banner" id="banner" hidden>
+      <p><b>Primeira vez aqui?</b> Confira em Configurações o preço da energia, da impressora e dos seus filamentos. Você só faz isso uma vez.</p>
+      <button class="btn sm primary" type="button" data-go="cfg">Abrir configurações</button>
+      <button class="btn sm" type="button" id="bannerOk">Já conferi</button>
+    </div>
+
+    <div class="grid">
+      <div class="col">
+        <section class="sec">
+          <div class="sec-h"><h2><span class="step">1</span>Qual peça você vai imprimir?</h2>
+            <p>Copie o tempo e os gramas que o fatiador mostra (Cura, Orca, Bambu Studio, Creality Print).</p></div>
+          <div class="fields">
+            <div class="field wide"><label class="lbl" for="m-nome">Nome e foto da peça</label>
+              <div class="nomefoto">
+                <button type="button" class="foto" id="fotoBtn" title="Escolher foto (ou cole uma imagem com Ctrl+V)">+ Foto</button>
+                <div class="inp"><input id="m-nome" type="text" data-bind="modelo.nome" placeholder="Ex.: Suporte de toalha"></div>
+              </div>
+              <input type="file" id="fotoIn" accept="image/*" hidden>
+              <span class="hint" id="fotoHint">Clique no quadrado, arraste uma imagem ou cole com Ctrl+V.</span></div>
+            <div class="field"><span class="lbl">Tempo de impressão</span>
+              <div class="time">
+                <div class="inp"><input id="m-horas" class="num" type="text" inputmode="numeric" data-bind="modelo.horas" aria-label="Horas"><span class="u">h</span></div>
+                <div class="inp"><input id="m-min" class="num" type="text" inputmode="numeric" data-bind="modelo.minutos" aria-label="Minutos"><span class="u">min</span></div>
+              </div></div>
+            <div class="field"><label class="lbl" for="m-un">Peças na mesma impressão</label>
+              <div class="stepper"><button type="button" data-step="-1" aria-label="Menos uma peça">−</button><input id="m-un" type="text" inputmode="numeric" data-bind="modelo.unidades"><button type="button" data-step="1" aria-label="Mais uma peça">+</button></div>
+              <span class="hint">Se a mesa tem 4 peças, o tempo e o filamento são divididos por 4.</span></div>
+          </div>
+        </section>
+
+        <section class="sec">
+          <div class="sec-h"><h2><span class="step">2</span>Quanto filamento usa?</h2>
+            <p>Peso total da impressão. Se usar mais de uma cor, adicione uma linha para cada.</p></div>
+          <div class="rows mfil" id="list-mfil">
+            <div class="row head"><span>Filamento</span><span>Peso</span><span style="text-align:right">Custo</span><span></span></div>
+          </div>
+          <div class="under"><button class="add" type="button" data-add="mfil">+ Outra cor ou material</button>
+            <button class="link" type="button" data-go="cfg">Cadastrar filamento novo</button></div>
+        </section>
+
+        <section class="sec">
+          <div class="sec-h"><h2><span class="step">3</span>Embalagem e acessórios</h2>
+            <p>O que vai junto com <b>cada peça</b>: saquinho, plástico bolha, argola de chaveiro, ímã.</p></div>
+          <div class="rows mace" id="list-mace">
+            <div class="row head"><span>Item</span><span>Quantidade</span><span style="text-align:right">Custo</span><span></span></div>
+          </div>
+          <div class="under"><button class="add" type="button" data-add="mace">+ Adicionar item</button>
+            <button class="link" type="button" data-go="cfg">Cadastrar item novo</button></div>
+        </section>
+
+        <section class="sec">
+          <div class="sec-h"><h2><span class="step">4</span>Seu trabalho manual</h2>
+            <p>Minutos gastos em cada peça depois de imprimir: tirar suporte, lixar, pintar, montar, embalar.</p></div>
+          <div class="fields">
+            <div class="field"><label class="lbl" for="m-pos">Tempo por peça</label>
+              <div class="inp"><input id="m-pos" class="num" type="text" inputmode="numeric" data-bind="modelo.posMin"><span class="u">min</span></div>
+              <span class="hint" id="posHint"></span></div>
+          </div>
+        </section>
+
+        <section class="sec">
+          <div class="sec-h"><h2><span class="step">5</span>Quanto quer ganhar?</h2>
+            <p>Escolha por quanto multiplicar o custo. As taxas de cada canal já são somadas por cima.</p></div>
+          <div class="seg" id="mkSeg">
+            <button type="button" data-mk="1.5">1,5×</button>
+            <button type="button" data-mk="2">2×</button>
+            <button type="button" data-mk="2.5">2,5×</button>
+            <button type="button" data-mk="3">3×</button>
+            <button type="button" data-mk="4">4×</button>
+            <div class="inp"><input id="mk" class="num" type="text" inputmode="decimal" data-bind="markup" aria-label="Outro multiplicador"><span class="u">×</span></div>
+          </div>
+          <div class="explain" id="mkExplain"></div>
+        </section>
+      </div>
+
+      <aside class="summary" id="summary" aria-live="polite">
+        <div class="card">
+          <div class="gcode" id="gcode"></div>
+          <div class="tn"><span class="thumb lg" id="sumFoto" hidden></span><div class="model-name" id="sumNome"></div></div>
+          <div class="big-l">Custa para você produzir cada peça</div>
+          <div class="big" id="custoUn">R$ 0,00</div>
+          <div class="sub" id="sumSub"></div>
+          <details class="why" open>
+            <summary>De onde vem esse custo</summary>
+            <div class="bar" id="bar" role="img" aria-label="Composição do custo"></div>
+            <ul class="legend" id="legend"></ul>
+          </details>
+        </div>
+        <div class="card">
+          <h3>Por quanto vender</h3>
+          <p class="h3-sub">Preço de anúncio em cada canal, já com as taxas.</p>
+          <ul class="chans" id="chans"></ul>
+        </div>
+        <div class="card">
+          <div class="actions">
+            <button class="btn primary" type="button" id="btnSave">Salvar modelo</button>
+            <button class="btn" type="button" id="btnCopy">Copiar resumo</button>
+            <button class="btn" type="button" id="btnNew">Nova peça</button>
+          </div>
+          <div class="toast" id="toast"></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ SALVOS ============ -->
+  <section id="view-saved" role="tabpanel" aria-labelledby="tab-saved" hidden>
+    <ul class="saved" id="saved"></ul>
+    <p class="hint" style="margin-top:14px">Ao abrir um modelo, o custo é recalculado com as configurações atuais. Use <b>Vendi</b> para registrar uma venda; ela aparece na aba Vendas.</p>
+    <div class="toast"></div>
+  </section>
+
+  <!-- ============ VENDAS ============ -->
+  <section id="view-vendas" role="tabpanel" aria-labelledby="tab-vendas" hidden>
+    <div class="banner" id="vNudge" hidden>
+      <p id="vNudgeT"></p>
+      <button class="btn sm primary" type="button" id="vNudgeGo">Configurar arquivo</button>
+    </div>
+    <div class="vhead">
+      <div class="inp"><select id="vPer" aria-label="Período"></select></div>
+      <span class="hint">Para registrar uma venda, use o botão <b>Vendi</b> em Modelos salvos.</span>
+    </div>
+    <div class="kpis" id="vKpi"></div>
+    <div class="vgrid">
+      <section class="sec"><div class="sec-h"><h2>Por modelo</h2></div><div class="tscroll" id="vModelos"></div></section>
+      <section class="sec"><div class="sec-h"><h2>Por canal</h2></div><div class="tscroll" id="vCanais"></div></section>
+    </div>
+    <section class="sec"><div class="sec-h"><h2>Vendas registradas</h2><p>Os valores ficam como estavam no dia da venda, mesmo que você mude preços ou taxas depois.</p></div>
+      <div class="tscroll" id="vLista"></div></section>
+    <div class="toast"></div>
+  </section>
+
+  <!-- ============ CONFIGURAÇÕES ============ -->
+  <section id="view-cfg" role="tabpanel" aria-labelledby="tab-cfg" hidden>
+    <div class="col narrow">
+      <section class="sec">
+        <div class="sec-h"><h2>Filamentos</h2><p>Os rolos que você usa e quanto pagou no quilo. Aparecem na lista da etapa 2.</p></div>
+        <div class="rows cmat" id="list-cmat"><div class="row head"><span>Nome</span><span>Preço do rolo de 1 kg</span><span></span></div></div>
+        <div class="under"><button class="add" type="button" data-add="cmat">+ Adicionar filamento</button></div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2>Embalagens e acessórios</h2><p>Custo de cada unidade. Ex.: pacote com 100 saquinhos por R$ 19,90 dá R$ 0,199 cada.</p></div>
+        <div class="rows cite" id="list-cite"><div class="row head"><span>Nome</span><span>Custo por unidade</span><span></span></div></div>
+        <div class="under"><button class="add" type="button" data-add="cite">+ Adicionar item</button></div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2>Impressora e energia</h2><p>Usados para calcular a luz gasta e o desgaste da máquina a cada hora.</p></div>
+        <div class="fields">
+          <div class="field"><label class="lbl" for="c-pot">Consumo da impressora</label>
+            <div class="inp"><input id="c-pot" class="num" type="text" inputmode="decimal" data-bind="cfg.potencia"><span class="u">W</span></div>
+            <span class="hint">Média durante a impressão. Bambu A1 ~95 W, Ender 3 ~150 W.</span></div>
+          <div class="field"><label class="lbl" for="c-kwh">Preço da energia</label>
+            <div class="inp"><span class="u pre">R$</span><input id="c-kwh" class="num" type="text" inputmode="decimal" data-bind="cfg.kwh"><span class="u">/kWh</span></div>
+            <span class="hint">Está na sua conta de luz.</span></div>
+          <div class="field"><label class="lbl" for="c-maq">Quanto pagou na impressora</label>
+            <div class="inp"><span class="u pre">R$</span><input id="c-maq" class="num" type="text" inputmode="decimal" data-bind="cfg.maquina"></div></div>
+          <div class="field"><label class="lbl" for="c-vida">Horas até trocar a impressora</label>
+            <div class="inp"><input id="c-vida" class="num" type="text" inputmode="decimal" data-bind="cfg.vidaUtil"><span class="u">h</span></div>
+            <span class="hint">Vida útil estimada. 20.000 h é um bom começo.</span></div>
+          <div class="field"><label class="lbl" for="c-falha">Impressões que dão errado</label>
+            <div class="inp"><input id="c-falha" class="num" type="text" inputmode="decimal" data-bind="cfg.falha"><span class="u">%</span></div>
+            <span class="hint">Reserva para cobrir peças perdidas.</span></div>
+        </div>
+        <div class="readout" id="machRead"></div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2>Seu tempo e custos do mês</h2></div>
+        <div class="fields">
+          <div class="field"><label class="lbl" for="c-hora">Quanto vale sua hora</label>
+            <div class="inp"><span class="u pre">R$</span><input id="c-hora" class="num" type="text" inputmode="decimal" data-bind="cfg.valorHora"><span class="u">/h</span></div></div>
+          <div class="field"><label class="lbl" for="c-fixo">Contas fixas do mês</label>
+            <div class="inp"><span class="u pre">R$</span><input id="c-fixo" class="num" type="text" inputmode="decimal" data-bind="cfg.fixoMensal"></div>
+            <span class="hint">MEI, internet, aluguel, assinaturas.</span></div>
+          <div class="field"><label class="lbl" for="c-pecas">Peças que vende por mês</label>
+            <div class="inp"><input id="c-pecas" class="num" type="text" inputmode="numeric" data-bind="cfg.pecasMes"><span class="u">un</span></div>
+            <span class="hint">As contas fixas são divididas entre elas.</span></div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2>Canais de venda</h2><p>Taxa em %, tarifa fixa por venda e desconto que você dá ao cliente (ex.: 3% no Pix).</p></div>
+        <div class="rows ccan" id="list-ccan"><div class="row head"><span>Canal</span><span>Taxa</span><span>Tarifa fixa</span><span>Desconto</span><span></span></div></div>
+        <div class="under"><button class="add" type="button" data-add="ccan">+ Adicionar canal</button></div>
+        <p class="hint" style="margin:12px 0 0">Mercado Livre: a taxa muda por categoria e tipo de anúncio (Clássico 10–14%, Premium 15–19%). A tarifa fixa da linha vale só abaixo de R$ 79; a partir de R$ 79 o frete grátis é obrigatório e o app usa o frete que você informar abaixo.</p>
+        <p class="hint" style="margin:6px 0 0">Shopee: a taxa muda conforme o preço e o app escolhe a faixa sozinho (tabela de março/2026: até R$ 79,99 = 20% + R$ 4 · R$ 80 a 99,99 = 14% + R$ 16 · R$ 100 a 199,99 = 14% + R$ 20 · R$ 200 ou mais = 14% + R$ 26 · abaixo de R$ 8 = 50%). O que você puser na linha da Shopee é somado por cima — ex.: R$ 3 se vende como CPF com mais de 450 pedidos em 90 dias.</p>
+        <div class="fields" style="margin-top:16px">
+          <div class="field"><label class="lbl" for="c-imp">Imposto sobre a venda</label>
+            <div class="inp"><input id="c-imp" class="num" type="text" inputmode="decimal" data-bind="cfg.imposto"><span class="u">%</span></div>
+            <span class="hint">Deixe 0 se paga o DAS fixo do MEI.</span></div>
+          <div class="field"><label class="lbl" for="c-frml">Frete grátis do Mercado Livre</label>
+            <div class="inp"><span class="u pre">R$</span><input id="c-frml" class="num" type="text" inputmode="decimal" data-bind="cfg.freteML"></div>
+            <span class="hint">O que você paga de frete por venda a partir de R$ 79. Depende do peso e da sua reputação; veja no simulador do Mercado Livre.</span></div>
+          <div class="field" style="justify-content:center"><label class="check" for="c-arred"><input id="c-arred" type="checkbox" data-bind="cfg.arred"> Arredondar preços para ,90</label></div>
+        </div>
+      </section>
+
+      <section class="sec" id="fileSec">
+        <div class="sec-h"><h2>Arquivo de dados</h2><p>Modelos, vendas e configurações gravados num arquivo no seu computador.</p></div>
+        <p class="explain" id="fileInfo" style="margin-top:0"></p>
+        <div class="actions" style="margin-top:12px">
+          <button class="btn primary" type="button" id="fCreate">Criar arquivo novo</button>
+          <button class="btn" type="button" id="fOpen">Abrir arquivo existente</button>
+          <button class="btn" type="button" id="fDisc">Desconectar</button>
+        </div>
+        <div class="under">
+          <button class="link" type="button" id="fExport">Exportar cópia (.json)</button>
+          <button class="link" type="button" id="fImport">Importar cópia</button>
+          <input type="file" id="fImportIn" accept=".json,application/json" hidden>
+        </div>
+        <p class="hint" style="margin:12px 0 0">Dica: guarde o arquivo numa pasta do OneDrive ou do Google Drive para ter backup automático.</p>
+        <div class="toast"></div>
+      </section>
+
+      <div><button class="btn" type="button" data-go="calc">← Voltar para a calculadora</button></div>
+    </div>
+  </section>
+</div>
+
+<div class="mbar" id="mbar" hidden>
+  <div><div class="ml">Custo por peça</div><div class="mv" id="mbCusto"></div></div>
+  <div><div class="ml" id="mbCanal"></div><div class="mv" id="mbPreco"></div></div>
+  <button class="btn sm primary" type="button" id="mbGo">Ver preços</button>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<dialog class="dlg" id="sellDlg" aria-labelledby="sellTitle">
+  <form id="sellForm">
+    <h2 id="sellTitle">Registrar venda</h2>
+    <div class="hint" id="sellNome"></div>
+    <div class="fields">
+      <div class="field"><label class="lbl" for="v-qtd">Quantidade</label>
+        <div class="stepper"><button type="button" data-vstep="-1" aria-label="Menos uma peça">−</button><input id="v-qtd" type="text" inputmode="numeric"><button type="button" data-vstep="1" aria-label="Mais uma peça">+</button></div></div>
+      <div class="field"><label class="lbl" for="v-data">Data</label>
+        <div class="inp"><input id="v-data" type="date"></div></div>
+      <div class="field wide"><label class="lbl" for="v-canal">Onde vendeu</label>
+        <div class="inp name"><select id="v-canal"></select></div></div>
+      <div class="field wide"><label class="lbl" for="v-preco">Preço de cada peça</label>
+        <div class="inp"><span class="u pre">R$</span><input id="v-preco" class="num" type="text" inputmode="decimal"></div>
+        <span class="hint">Preço anunciado. Deixe vazio para usar o preço sugerido.</span></div>
+    </div>
+    <div class="explain" id="sellPrev"></div>
+    <div class="actions" style="margin-top:16px;justify-content:flex-end">
+      <button class="btn" type="button" id="sellCancel">Cancelar</button>
+      <button class="btn primary" type="submit">Registrar venda</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function(){
+  var KEY_STATE = 'calc3d.state.v2', KEY_SAVED = 'calc3d.modelos.v2', KEY_VENDAS = 'calc3d.vendas.v1';
+  var uid = function(){ return Math.random().toString(36).slice(2, 9); };
+  var DEFAULTS = {
+    tab: 'calc', seenSetup: false, markup: '3', precos: {},
+    modelo: { nome: 'Suporte de toalha (exemplo)', horas: '6', minutos: '0', unidades: '1', posMin: '10',
+      fil: [{ mat: 'm1', g: '173' }], ace: [{ item: 'i1', qtd: '1' }, { item: 'i2', qtd: '1' }] },
+    cfg: {
+      potencia: '150', kwh: '0,90', maquina: '5500', vidaUtil: '20000', falha: '10',
+      valorHora: '20', fixoMensal: '0', pecasMes: '100', imposto: '0', arred: true, freteML: '12,95',
+      materiais: [{ id: 'm1', nome: 'PLA Rosa (Voolt3D)', precoKg: '89' }],
+      itens: [{ id: 'i1', nome: 'Saco plástico', custo: '0,199' }, { id: 'i2', nome: 'Rolo de bolha', custo: '0,30' }, { id: 'i3', nome: 'Argola de chaveiro', custo: '0,24' }],
+      canais: [
+        { id: 'c1', nome: 'Venda direta (Pix)', taxa: '0', fixa: '0', desc: '0' },
+        { id: 'c2', nome: 'Mercado Livre', tipo: 'ml', taxa: '14', fixa: '6,75', desc: '0' },
+        { id: 'c3', nome: 'Nuvemshop cartão', taxa: '4,69', fixa: '0,35', desc: '0' },
+        { id: 'c4', nome: 'Nuvemshop Pix', taxa: '0,99', fixa: '0', desc: '3' },
+        { id: 'c5', nome: 'Shopee', tipo: 'shopee', taxa: '0', fixa: '0', desc: '0' }
+      ]
+    }
+  };
+  var SERIES = [
+    { k: 'fil', nome: 'Filamento', c: 'var(--s1)' },
+    { k: 'ene', nome: 'Energia', c: 'var(--s2)' },
+    { k: 'dep', nome: 'Desgaste da impressora', c: 'var(--s3)' },
+    { k: 'fal', nome: 'Reserva para falhas', c: 'var(--s4)' },
+    { k: 'ace', nome: 'Embalagem e acessórios', c: 'var(--s5)' },
+    { k: 'mao', nome: 'Seu trabalho manual', c: 'var(--s6)' },
+    { k: 'fix', nome: 'Contas fixas do mês', c: 'var(--s7)' }
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  var num1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+  var num2 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+  var pctF = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 0 });
+  var money = function(v){ return isFinite(v) ? brl.format(v) : '—'; };
+  var n = function(v){ var x = parseFloat(String(v == null ? '' : v).replace(/\s/g, '').replace(',', '.')); return isFinite(x) ? x : 0; };
+  var clone = function(o){ return JSON.parse(JSON.stringify(o)); };
+  var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]; }); };
+  function load(key, fb){ try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } }
+  var quotaWarned = false;
+  function store(key, v){
+    try { localStorage.setItem(key, JSON.stringify(v)); }
+    catch (e) {
+      // Photos can fill browser storage (~5 MB); the data file has no such limit.
+      if (!fileOk && !quotaWarned) { quotaWarned = true; toast('O navegador ficou sem espaço (provavelmente pelas fotos). Crie um arquivo de dados em Configurações para não perder nada.', true); }
+    }
+    scheduleFileSave();
+  }
+  function getPath(p){ return p.split('.').reduce(function(o, k){ return o[k]; }, state); }
+  function setPath(p, v){ var ks = p.split('.'), last = ks.pop(); ks.reduce(function(o, k){ return o[k]; }, state)[last] = v; }
+
+  function mergeState(l){
+    var s = clone(DEFAULTS);
+    if (l) { Object.assign(s, l); s.cfg = Object.assign(clone(DEFAULTS.cfg), l.cfg || {}); s.modelo = Object.assign(clone(DEFAULTS.modelo), l.modelo || {}); }
+    // Add the Shopee channel once to data saved before it existed (if the user deletes it, it stays deleted).
+    if (l && !s.cfg.shopeeAdded && !s.cfg.canais.some(function(c){ return c.tipo === 'shopee'; }))
+      s.cfg.canais.push({ id: 'c5' + Date.now().toString(36), nome: 'Shopee', tipo: 'shopee', taxa: '0', fixa: '0', desc: '0' });
+    s.cfg.shopeeAdded = true;
+    // Mark the existing Mercado Livre channel once so it gets the R$ 79 / free-shipping rule.
+    if (!s.cfg.mlTipo) s.cfg.canais.forEach(function(c){ if (!c.tipo && /mercado\s*livre/i.test(c.nome || '')) c.tipo = 'ml'; });
+    s.cfg.mlTipo = true;
+    return s;
+  }
+  var state = mergeState(load(KEY_STATE, null));
+  var saved = load(KEY_SAVED, []);
+  var vendas = load(KEY_VENDAS, []);
+
+  /* ---------- tabs ---------- */
+  function showTab(t){
+    if (!$('view-' + t)) t = 'calc';
+    state.tab = t;
+    ['calc', 'saved', 'vendas', 'cfg'].forEach(function(x){
+      $('view-' + x).hidden = x !== t;
+      $('tab-' + x).setAttribute('aria-selected', x === t ? 'true' : 'false');
+    });
+    if (t === 'vendas') renderVendas();
+    updateMbar(); store(KEY_STATE, state);
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-tab],[data-go]'); if (!b) return;
+    showTab(b.dataset.tab || b.dataset.go); window.scrollTo({ top: 0 });
+  });
+  $('bannerOk').onclick = function(){ state.seenSetup = true; $('banner').hidden = true; store(KEY_STATE, state); };
+
+  /* ---------- inputs ---------- */
+  function field(f, value, o){
+    o = o || {};
+    return '<div class="inp' + (o.name ? ' name' : '') + '">' + (o.pre ? '<span class="u pre">' + o.pre + '</span>' : '') +
+      '<input type="text"' + (o.text ? '' : ' class="num" inputmode="decimal"') + ' data-f="' + f + '" value="' + esc(value) + '" aria-label="' + esc(o.label) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + '>' +
+      (o.u ? '<span class="u">' + o.u + '</span>' : '') + '</div>';
+  }
+  function select(f, value, options, label){
+    var found = options.some(function(x){ return x.id === value; });
+    return '<div class="inp name"><select data-f="' + f + '" aria-label="' + label + '">' +
+      (found ? '' : '<option value="' + esc(value) + '">Escolha…</option>') +
+      options.map(function(x){ return '<option value="' + x.id + '"' + (x.id === value ? ' selected' : '') + '>' + esc(x.nome || 'Sem nome') + '</option>'; }).join('') +
+      '</select></div>';
+  }
+  var LISTS = {
+    mfil: { path: 'modelo.fil', blank: function(){ return { mat: (state.cfg.materiais[0] || {}).id || '', g: '' }; },
+      html: function(r){ return select('mat', r.mat, state.cfg.materiais, 'Filamento') + field('g', r.g, { u: 'g', label: 'Peso em gramas', ph: '0' }) + '<span class="cost"></span>'; } },
+    mace: { path: 'modelo.ace', blank: function(){ return { item: (state.cfg.itens[0] || {}).id || '', qtd: '1' }; },
+      html: function(r){ return select('item', r.item, state.cfg.itens, 'Item') + field('qtd', r.qtd, { u: 'un', label: 'Quantidade por peça' }) + '<span class="cost"></span>'; } },
+    cmat: { path: 'cfg.materiais', blank: function(){ return { id: uid(), nome: '', precoKg: '' }; }, catalog: true,
+      html: function(r){ return field('nome', r.nome, { text: 1, name: 1, label: 'Nome do filamento', ph: 'Ex.: PETG Preto' }) + field('precoKg', r.precoKg, { pre: 'R$', u: '/kg', label: 'Preço por kg', ph: '0,00' }); } },
+    cite: { path: 'cfg.itens', blank: function(){ return { id: uid(), nome: '', custo: '' }; }, catalog: true,
+      html: function(r){ return field('nome', r.nome, { text: 1, name: 1, label: 'Nome do item', ph: 'Ex.: Ímã de neodímio' }) + field('custo', r.custo, { pre: 'R$', label: 'Custo por unidade', ph: '0,00' }); } },
+    ccan: { path: 'cfg.canais', blank: function(){ return { id: uid(), nome: '', taxa: '0', fixa: '0', desc: '0' }; }, channels: true,
+      html: function(r){ return field('nome', r.nome, { text: 1, name: 1, label: 'Nome do canal', ph: 'Ex.: Shopee' }) + field('taxa', r.taxa, { u: '%', label: 'Taxa percentual' }) +
+        field('fixa', r.fixa, { pre: 'R$', label: 'Tarifa fixa por venda' }) + field('desc', r.desc, { u: '%', label: 'Desconto ao cliente' }); } }
+  };
+  function renderList(key){
+    var d = LISTS[key], box = $('list-' + key);
+    box.querySelectorAll('.row:not(.head)').forEach(function(r){ r.remove(); });
+    getPath(d.path).forEach(function(item, i){
+      var div = document.createElement('div');
+      div.className = 'row'; div.dataset.i = i;
+      div.innerHTML = d.html(item) + '<button type="button" class="xbtn" title="Remover" aria-label="Remover">×</button>';
+      box.appendChild(div);
+    });
+  }
+  function afterListChange(key){
+    var d = LISTS[key];
+    if (d.catalog) { renderList('mfil'); renderList('mace'); }
+    if (d.channels) buildChans();
+    update();
+  }
+  Object.keys(LISTS).forEach(function(key){
+    var d = LISTS[key], box = $('list-' + key);
+    var onEdit = function(e){
+      var row = e.target.closest('.row'), f = e.target.dataset.f; if (!row || !f) return;
+      getPath(d.path)[+row.dataset.i][f] = e.target.value;
+      if (d.catalog) { if (f === 'nome') { renderList('mfil'); renderList('mace'); } update(); }
+      else if (d.channels) { buildChans(); update(); }
+      else update();
+    };
+    box.addEventListener('input', onEdit);
+    box.addEventListener('change', onEdit);
+    box.addEventListener('click', function(e){
+      if (!e.target.classList.contains('xbtn')) return;
+      getPath(d.path).splice(+e.target.closest('.row').dataset.i, 1);
+      renderList(key); afterListChange(key);
+    });
+  });
+  document.querySelectorAll('[data-add]').forEach(function(b){
+    b.onclick = function(){
+      var key = b.dataset.add, d = LISTS[key];
+      getPath(d.path).push(d.blank()); renderList(key); afterListChange(key);
+      var rows = $('list-' + key).querySelectorAll('.row:not(.head)'); var last = rows[rows.length - 1];
+      if (last) last.querySelector(d.catalog || d.channels ? 'input' : 'input,select').focus();
+    };
+  });
+
+  function fillBound(){
+    document.querySelectorAll('[data-bind]').forEach(function(el){
+      var v = getPath(el.dataset.bind);
+      if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+    });
+  }
+  document.addEventListener('input', function(e){
+    var p = e.target.dataset && e.target.dataset.bind; if (!p) return;
+    setPath(p, e.target.type === 'checkbox' ? e.target.checked : e.target.value); update();
+  });
+  document.addEventListener('change', function(e){
+    var p = e.target.dataset && e.target.dataset.bind; if (!p || e.target.type !== 'checkbox') return;
+    setPath(p, e.target.checked); update();
+  });
+  document.querySelectorAll('[data-step]').forEach(function(b){
+    b.onclick = function(){ var v = Math.max(1, Math.round(n(state.modelo.unidades)) + (+b.dataset.step)); state.modelo.unidades = String(v); $('m-un').value = v; update(); };
+  });
+  $('mkSeg').addEventListener('click', function(e){
+    var b = e.target.closest('[data-mk]'); if (!b) return;
+    state.markup = b.dataset.mk.replace('.', ','); $('mk').value = state.markup; update();
+  });
+
+  /* ---------- math ---------- */
+  function byId(list, id){ for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
+  function calc(s){
+    var c = s.cfg, m = s.modelo;
+    var horas = n(m.horas) + n(m.minutos) / 60;
+    var u = Math.max(1, Math.round(n(m.unidades)) || 1);
+    var gramas = 0, fil = 0, filRows = [], aceRows = [];
+    m.fil.forEach(function(r){ var mat = byId(c.materiais, r.mat); var v = n(r.g) / 1000 * (mat ? n(mat.precoKg) : 0); gramas += n(r.g); fil += v; filRows.push(v); });
+    var ace = 0;
+    m.ace.forEach(function(r){ var it = byId(c.itens, r.item); var v = n(r.qtd) * (it ? n(it.custo) : 0); ace += v; aceRows.push(v); });
+    var eneH = n(c.potencia) / 1000 * n(c.kwh);
+    var depH = n(c.vidaUtil) > 0 ? n(c.maquina) / n(c.vidaUtil) : 0;
+    var ene = eneH * horas, dep = depH * horas;
+    var fal = (fil + ene + dep) * n(c.falha) / 100;
+    var parts = { fil: fil / u, ene: ene / u, dep: dep / u, fal: fal / u, ace: ace,
+      mao: n(m.posMin) / 60 * n(c.valorHora), fix: n(c.pecasMes) > 0 ? n(c.fixoMensal) / n(c.pecasMes) : 0 };
+    var custo = SERIES.reduce(function(a, sr){ return a + parts[sr.k]; }, 0);
+    return { horas: horas, u: u, gramas: gramas, parts: parts, custo: custo, horasUn: horas / u, eneH: eneH, depH: depH, filRows: filRows, aceRows: aceRows };
+  }
+  function roundUp90(p){ return Math.max(0.9, Math.ceil(p - 0.9 - 1e-9) + 0.9); }
+  // Shopee Brasil, tabela CNPJ em vigor desde 01/03/2026: a comissão depende do preço do item.
+  var SHOPEE = [
+    { ate: 8, taxa: 50, fixa: 0 },
+    { ate: 80, taxa: 20, fixa: 4 },
+    { ate: 100, taxa: 14, fixa: 16 },
+    { ate: 200, taxa: 14, fixa: 20 },
+    { ate: Infinity, taxa: 14, fixa: 26 }
+  ];
+  // Fee tiers for a channel. Normal channels have one tier; the channel's own fields are added on top of Shopee's table.
+  // Mercado Livre: below R$ 79 pays the per-unit fee; from R$ 79 on, free shipping is mandatory and the seller pays the freight instead.
+  function tiers(ch, cfg){
+    var t = n(ch.taxa), f = n(ch.fixa);
+    if (ch.tipo === 'ml') return [{ de: 0, ate: 79, taxa: t, fixa: f, lbl: 'tarifa por unidade' },
+      { de: 79, ate: Infinity, taxa: t, fixa: n(cfg.freteML), lbl: 'frete grátis' }];
+    if (ch.tipo !== 'shopee') return [{ de: 0, ate: Infinity, taxa: t, fixa: f }];
+    return SHOPEE.map(function(x, i){ return { de: i ? SHOPEE[i - 1].ate : 0, ate: x.ate, taxa: x.taxa + t, fixa: x.fixa + f, base: x }; });
+  }
+  function tierOf(ch, cfg, base){ var ts = tiers(ch, cfg); for (var i = 0; i < ts.length; i++) if (base < ts[i].ate) return ts[i]; return ts[ts.length - 1]; }
+  // Lowest listing price whose net (after fees, discount and tax) reaches `alvo`.
+  function priceFor(ch, cfg, alvo, d, imp, round){
+    var ts = tiers(ch, cfg);
+    for (var i = 0; i < ts.length; i++){
+      var x = ts[i], k = (1 - d) * (1 - x.taxa / 100 - imp);
+      if (k <= 0) continue;
+      var P = Math.max((alvo + x.fixa) / k, x.de / (1 - d));
+      if (round) P = roundUp90(P);
+      if (P * (1 - d) < x.ate) return P;
+    }
+    return null;
+  }
+  function canal(ch, r, s, preco){
+    var d = n(ch.desc) / 100, imp = n(s.cfg.imposto) / 100;
+    if (d >= 1) return { invalid: true };
+    var mk = Math.max(1, n(s.markup) || 1);
+    var min = priceFor(ch, s.cfg, r.custo, d, imp, false);
+    var sug = priceFor(ch, s.cfg, r.custo * mk, d, imp, s.cfg.arred);
+    if (min == null || sug == null) return { invalid: true };
+    var P = n(preco) > 0 ? n(preco) : sug;
+    var base = P * (1 - d), x = tierOf(ch, s.cfg, base);
+    var rec = base * (1 - x.taxa / 100 - imp) - x.fixa, lucro = rec - r.custo;
+    return { min: min, sug: sug, P: P, own: n(preco) > 0, rec: rec, lucro: lucro, margem: base > 0 ? lucro / base : 0,
+      lucroH: r.horasUn > 0 ? lucro / r.horasUn : null, faixa: ch.tipo === 'shopee' || ch.tipo === 'ml' ? x : null };
+  }
+  function feeText(c){
+    var parts = [];
+    if (c.tipo === 'shopee') parts.push('tabela Shopee');
+    if (n(c.taxa)) parts.push(num2.format(n(c.taxa)) + '%');
+    if (c.tipo === 'ml') parts.push(money(n(c.fixa)) + ' ou frete');
+    else if (n(c.fixa)) parts.push(money(n(c.fixa)));
+    if (n(c.desc)) parts.push(num2.format(n(c.desc)) + '% desc.');
+    return parts.length ? parts.join(' + ') : 'sem taxa';
+  }
+  function pill(ch){
+    if (ch.lucro < 0) return '<span class="pill loss">✕ prejuízo</span>';
+    if (ch.margem < 0.2) return '<span class="pill low">! margem baixa</span>';
+    return '<span class="pill ok">✓ boa margem</span>';
+  }
+  function fmtTime(h){ var t = Math.round(h * 60); return Math.floor(t / 60) + 'h ' + String(t % 60).padStart(2, '0') + 'min'; }
+
+  /* ---------- channel cards ---------- */
+  function buildChans(){
+    var ul = $('chans');
+    if (!state.cfg.canais.length) { ul.innerHTML = '<li class="hint">Nenhum canal cadastrado. Adicione em Configurações.</li>'; return; }
+    ul.innerHTML = state.cfg.canais.map(function(c){
+      var pid = 'preco-' + c.id;
+      return '<li class="ch" data-id="' + c.id + '">' +
+        '<div class="ch-top"><span class="cn">' + esc(c.nome || 'Canal sem nome') + '</span><span class="cfee">' + esc(feeText(c)) + '</span></div>' +
+        '<div class="cp-row"><div><div class="cp-l"></div><div class="cp"></div></div><span class="pl"></span></div>' +
+        '<div class="cm"></div>' +
+        '<div class="ctest"><label for="' + pid + '">Testar outro preço</label><div class="inp"><span class="u pre">R$</span><input id="' + pid + '" class="num" type="text" inputmode="decimal" data-price="' + c.id + '" value="' + esc(state.precos[c.id] || '') + '"></div></div>' +
+        '<div class="cmin"></div></li>';
+    }).join('');
+  }
+  $('chans').addEventListener('input', function(e){
+    var id = e.target.dataset.price; if (!id) return;
+    state.precos[id] = e.target.value; update();
+  });
+
+  /* ---------- render ---------- */
+  function update(){
+    var s = state, r = calc(s);
+    store(KEY_STATE, s);
+
+    // per-row costs
+    $('list-mfil').querySelectorAll('.row:not(.head)').forEach(function(row, i){ row.querySelector('.cost').textContent = money(r.filRows[i]); });
+    $('list-mace').querySelectorAll('.row:not(.head)').forEach(function(row, i){ row.querySelector('.cost').textContent = money(r.aceRows[i]); });
+    $('posHint').textContent = n(s.modelo.posMin) > 0 ? 'Equivale a ' + money(r.parts.mao) + ' com sua hora a ' + money(n(s.cfg.valorHora)) + '.' : 'Deixe 0 se não há trabalho manual.';
+    $('machRead').innerHTML = '<span>Energia <b>' + money(r.eneH) + '/h</b></span><span>Desgaste <b>' + money(r.depH) + '/h</b></span><span>Total da máquina <b>' + money(r.eneH + r.depH) + '/h</b></span>';
+
+    var mk = Math.max(1, n(s.markup) || 1);
+    document.querySelectorAll('#mkSeg [data-mk]').forEach(function(b){ b.setAttribute('aria-pressed', Math.abs(+b.dataset.mk - mk) < 1e-9 ? 'true' : 'false'); });
+    $('mkExplain').innerHTML = 'A peça custa <b>' + money(r.custo) + '</b>. Com ' + num2.format(mk) + '×, você recebe <b>' + money(r.custo * mk) +
+      '</b> depois das taxas, ou seja, <b>' + money(r.custo * (mk - 1)) + '</b> de lucro por peça.';
+
+    $('gcode').innerHTML = '; tempo = <b>' + fmtTime(r.horas) + '</b> · filamento = <b>' + num1.format(r.gramas) + ' g</b> (≈ ' + num1.format(r.gramas / 2.98) + ' m de 1,75 mm)<br>; peças na mesa = <b>' + r.u + '</b>';
+    $('sumNome').textContent = s.modelo.nome || 'Peça sem nome';
+    $('custoUn').textContent = money(r.custo);
+    $('sumSub').innerHTML = r.u > 1 ? 'A mesa inteira (' + r.u + ' peças) custa <b>' + money(r.custo * r.u) + '</b>' : 'Máquina ocupada por <b>' + fmtTime(r.horasUn) + '</b>';
+
+    var bar = $('bar'), leg = $('legend'); bar.innerHTML = ''; leg.innerHTML = '';
+    SERIES.forEach(function(sr){
+      var v = r.parts[sr.k], p = r.custo > 0 ? v / r.custo : 0;
+      if (v > 0) { var seg = document.createElement('i'); seg.style.flexGrow = v; seg.style.background = sr.c; seg.dataset.tip = sr.nome + ' · ' + money(v) + ' · ' + pctF.format(p); bar.appendChild(seg); }
+      var li = document.createElement('li'); if (v <= 0) li.className = 'zero';
+      li.innerHTML = '<span class="sw" style="background:' + sr.c + '"></span><span>' + sr.nome + '</span><span class="v">' + money(v) + '</span><span class="p">' + pctF.format(p) + '</span>';
+      leg.appendChild(li);
+    });
+
+    $('chans').querySelectorAll('.ch').forEach(function(li){
+      var c = byId(s.cfg.canais, li.dataset.id); if (!c) return;
+      var ch = canal(c, r, s, s.precos[c.id]);
+      if (ch.invalid) { li.querySelector('.cp').textContent = '—'; li.querySelector('.cm').textContent = 'As taxas somam 100% ou mais. Revise em Configurações.'; return; }
+      li.querySelector('.cp-l').textContent = ch.own ? 'Seu preço' : 'Anuncie por';
+      li.querySelector('.cp').textContent = money(ch.P);
+      li.querySelector('.pl').innerHTML = pill(ch);
+      var cl = ch.lucro >= 0 ? 'pos' : 'neg';
+      li.querySelector('.cm').innerHTML = 'Você recebe <b>' + money(ch.rec) + '</b> · lucro <b class="' + cl + '">' + money(ch.lucro) + '</b> (' + pctF.format(ch.margem) + ')' +
+        (ch.lucroH != null ? '<br>Lucro por hora de máquina <b class="' + cl + '">' + money(ch.lucroH) + '</b>' : '') +
+        (ch.faixa ? '<br>' + (ch.faixa.lbl ? 'Nesta faixa (' + ch.faixa.lbl + ')' : 'Taxa Shopee nesta faixa') + ': <b>' + num2.format(ch.faixa.taxa) + '% + ' + money(ch.faixa.fixa) + '</b>' : '');
+      li.querySelector('.cmin').textContent = (ch.own ? 'Sugerido ' + money(ch.sug) + ' · ' : '') + 'Abaixo de ' + money(ch.min) + ' dá prejuízo';
+      li.querySelector('input').placeholder = num2.format(ch.sug);
+    });
+
+    $('savedCount').textContent = saved.length;
+    lastR = r; updateMbar();
+  }
+  var lastR = null;
+
+  /* ---------- mobile bottom bar ---------- */
+  function updateMbar(){
+    var show = state.tab === 'calc' && window.matchMedia('(max-width:920px)').matches;
+    $('mbar').hidden = !show; document.body.classList.toggle('has-mbar', show);
+    if (!show || !lastR) return;
+    $('mbCusto').textContent = money(lastR.custo);
+    var c0 = state.cfg.canais[0], ch = c0 ? canal(c0, lastR, state, state.precos[c0.id]) : null;
+    $('mbCanal').textContent = c0 ? (c0.nome || 'Canal') : 'Sem canal';
+    $('mbPreco').textContent = ch && !ch.invalid ? money(ch.P) : '—';
+  }
+  window.addEventListener('resize', updateMbar);
+  $('mbGo').onclick = function(){ $('summary').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+
+  /* ---------- tooltip on bar ---------- */
+  var tip = $('tip');
+  $('bar').addEventListener('mousemove', function(e){
+    var t = e.target.dataset && e.target.dataset.tip;
+    if (!t) { tip.hidden = true; return; }
+    tip.textContent = t; tip.hidden = false;
+    tip.style.left = Math.max(8, Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 8)) + 'px';
+    tip.style.top = (e.clientY + 14) + 'px';
+  });
+  $('bar').addEventListener('mouseleave', function(){ tip.hidden = true; });
+
+  /* ---------- saved models ---------- */
+  function renderSaved(){
+    var ul = $('saved');
+    $('savedCount').textContent = saved.length;
+    if (!saved.length) { ul.innerHTML = '<li class="empty" style="grid-column:1/-1">Nenhum modelo salvo ainda. Na aba Calcular peça, use "Salvar modelo" para guardar o cálculo e abrir de novo depois.</li>'; return; }
+    ul.innerHTML = saved.map(function(m, i){
+      var st = clone(state); st.modelo = clone(m.modelo); st.precos = {};
+      var r = calc(st), c0 = state.cfg.canais[0], ch = c0 ? canal(c0, r, st) : null;
+      var fc = fotoCss(m.modelo.foto);
+      return '<li><div class="tn">' + (fc ? '<span class="thumb xl" style="' + fc + '"></span>' : '') + '<span class="sn">' + esc(m.modelo.nome || 'Peça sem nome') + '</span></div>' +
+        '<span class="sm">' + fmtTime(r.horas) + ' · ' + num1.format(r.gramas) + ' g · ' + r.u + ' por mesa</span>' +
+        '<span class="sm">Custo ' + money(r.custo) + '</span>' +
+        (ch && !ch.invalid ? '<span class="sp">' + money(ch.sug) + '</span><span class="sm">' + esc(c0.nome) + '</span>' : '') +
+        '<div class="sa"><button class="btn sm primary" type="button" data-load="' + i + '">Abrir</button><button class="btn sm" type="button" data-sell="' + i + '">Vendi</button><button class="btn sm" type="button" data-del="' + i + '">Excluir</button></div></li>';
+    }).join('');
+  }
+  $('saved').addEventListener('click', function(e){
+    var b = e.target;
+    if (b.dataset.load != null) {
+      state.modelo = clone(saved[+b.dataset.load].modelo); state.precos = {};
+      refreshAll(); showTab('calc'); toast('Modelo "' + (state.modelo.nome || 'sem nome') + '" aberto.');
+    } else if (b.dataset.sell != null) {
+      openSell(+b.dataset.sell);
+    } else if (b.dataset.del != null) {
+      if (b.dataset.armed) { saved.splice(+b.dataset.del, 1); store(KEY_SAVED, saved); renderSaved(); return; }
+      b.dataset.armed = '1'; b.textContent = 'Clique para confirmar';
+      setTimeout(function(){ if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Excluir'; } }, 3000);
+    }
+  });
+  $('btnSave').onclick = function(){
+    var nome = (state.modelo.nome || '').trim();
+    if (!nome) { toast('Dê um nome à peça antes de salvar.', true); $('m-nome').focus(); return; }
+    var idx = saved.findIndex(function(m){ return (m.modelo.nome || '').trim() === nome; });
+    var entry = { modelo: clone(state.modelo) };
+    if (idx >= 0) saved[idx] = entry; else saved.unshift(entry);
+    store(KEY_SAVED, saved); renderSaved();
+    toast(idx >= 0 ? 'Modelo "' + nome + '" atualizado.' : 'Modelo "' + nome + '" salvo.');
+  };
+  $('btnNew').onclick = function(){
+    var mat = state.modelo.fil[0] ? state.modelo.fil[0].mat : (state.cfg.materiais[0] || {}).id;
+    state.modelo = { nome: '', horas: '', minutos: '', unidades: '1', posMin: '0', fil: [{ mat: mat || '', g: '' }], ace: clone(state.modelo.ace) };
+    state.precos = {};
+    refreshAll(); $('m-nome').focus(); toast('Pronto para uma peça nova. Embalagem e configurações foram mantidas.');
+  };
+  $('btnCopy').onclick = function(){
+    var r = calc(state), lines = [];
+    lines.push((state.modelo.nome || 'Peça') + ' — ' + fmtTime(r.horas) + ', ' + num1.format(r.gramas) + ' g, ' + r.u + ' peça(s) por impressão');
+    lines.push('Custo por peça: ' + money(r.custo));
+    state.cfg.canais.forEach(function(c){
+      var ch = canal(c, r, state, state.precos[c.id]); if (ch.invalid) return;
+      lines.push(c.nome + ': ' + money(ch.P) + ' (recebe ' + money(ch.rec) + ', lucro ' + money(ch.lucro) + ')');
+    });
+    var text = lines.join('\n');
+    try { navigator.clipboard.writeText(text).then(function(){ toast('Resumo copiado.'); }, function(){ fallbackCopy(text); }); }
+    catch (e) { fallbackCopy(text); }
+  };
+  function fallbackCopy(text){
+    var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    ta.remove(); toast(ok ? 'Resumo copiado.' : 'Não foi possível copiar automaticamente neste navegador.', !ok);
+  }
+  var toastT;
+  function toast(msg, bad){
+    var ts = document.querySelectorAll('.toast');
+    ts.forEach(function(t){ t.textContent = msg; t.style.color = bad ? 'var(--bad)' : ''; });
+    clearTimeout(toastT); toastT = setTimeout(function(){ ts.forEach(function(t){ t.textContent = ''; }); }, 3500);
+  }
+
+  /* ---------- register a sale ---------- */
+  var pad = function(x){ return String(x).padStart(2, '0'); };
+  function hoje(){ var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  var r2 = function(v){ return Math.round(v * 100) / 100; };
+  var sellIdx = null;
+  function sellCalc(){
+    var m = saved[sellIdx], c = byId(state.cfg.canais, $('v-canal').value); if (!m || !c) return null;
+    var st = clone(state); st.modelo = clone(m.modelo); st.precos = {};
+    var r = calc(st);
+    return { m: m, c: c, r: r, ch: canal(c, r, st, $('v-preco').value), q: Math.max(1, Math.round(n($('v-qtd').value)) || 1) };
+  }
+  function sellPreview(){
+    var x = sellCalc(), el = $('sellPrev');
+    if (!x || x.ch.invalid) { el.textContent = 'As taxas deste canal somam 100% ou mais. Revise em Configurações.'; return; }
+    $('v-preco').placeholder = num2.format(x.ch.sug);
+    var cl = x.ch.lucro >= 0 ? 'pos' : 'neg';
+    el.innerHTML = (x.q > 1 ? x.q + ' peças · ' : '') + 'Você recebe <b>' + money(x.ch.rec * x.q) + '</b> · lucro <b class="' + cl + '">' + money(x.ch.lucro * x.q) + '</b>';
+  }
+  function openSell(i){
+    var cs = state.cfg.canais;
+    if (!cs.length) { toast('Cadastre um canal de venda em Configurações primeiro.', true); return; }
+    sellIdx = i;
+    $('sellNome').textContent = saved[i].modelo.nome || 'Peça sem nome';
+    $('v-canal').innerHTML = cs.map(function(c){ return '<option value="' + c.id + '">' + esc(c.nome || 'Canal sem nome') + '</option>'; }).join('');
+    $('v-canal').value = byId(cs, state.ultimoCanal) ? state.ultimoCanal : cs[0].id;
+    $('v-qtd').value = '1'; $('v-preco').value = ''; $('v-data').value = hoje();
+    sellPreview(); $('sellDlg').showModal();
+  }
+  $('sellForm').addEventListener('input', sellPreview);
+  $('sellForm').addEventListener('change', sellPreview);
+  document.querySelectorAll('[data-vstep]').forEach(function(b){
+    b.onclick = function(){ $('v-qtd').value = Math.max(1, Math.round(n($('v-qtd').value)) + (+b.dataset.vstep)); sellPreview(); };
+  });
+  $('sellCancel').onclick = function(){ $('sellDlg').close(); };
+  $('sellForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var x = sellCalc(); if (!x || x.ch.invalid) return;
+    var base = x.ch.P * (1 - n(x.c.desc) / 100), nome = x.m.modelo.nome || 'Peça sem nome';
+    vendas.unshift({ id: uid(), data: $('v-data').value || hoje(), nome: nome, qtd: x.q, canal: x.c.nome || 'Canal sem nome',
+      preco: r2(x.ch.P), bruto: r2(base * x.q), recebido: r2(x.ch.rec * x.q), custo: r2(x.r.custo * x.q), lucro: r2(x.ch.lucro * x.q) });
+    vendas.sort(function(a, b){ return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
+    state.ultimoCanal = x.c.id;
+    store(KEY_VENDAS, vendas); store(KEY_STATE, state); flushFile(); renderVendas();
+    $('sellDlg').close();
+    toast('Venda registrada: ' + x.q + '× ' + nome + ', lucro de ' + money(x.ch.lucro * x.q) + '.');
+  });
+
+  /* ---------- sales page ---------- */
+  function mesNome(k){
+    var s = new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  function group(list, key){
+    var g = {};
+    list.forEach(function(v){
+      var k = v[key], o = g[k] || (g[k] = { nome: k, qtd: 0, bruto: 0, recebido: 0, lucro: 0 });
+      o.qtd += v.qtd; o.bruto += v.bruto; o.recebido += v.recebido; o.lucro += v.lucro;
+    });
+    return Object.keys(g).map(function(k){ return g[k]; }).sort(function(a, b){ return b.lucro - a.lucro; });
+  }
+  var lc = function(v){ return v >= 0 ? 'pos' : 'neg'; };
+  function kpi(l, v, s, cl){ return '<div class="kpi"><div class="kl">' + l + '</div><div class="kv' + (cl ? ' ' + cl : '') + '">' + v + '</div><div class="ks">' + s + '</div></div>'; }
+  function renderVendas(){
+    var cur = hoje().slice(0, 7), months = {};
+    months[cur] = 1; vendas.forEach(function(v){ months[v.data.slice(0, 7)] = 1; });
+    var per = state.vPer === 'all' || months[state.vPer] ? state.vPer : cur;
+    $('vPer').innerHTML = Object.keys(months).sort().reverse().map(function(k){
+      return '<option value="' + k + '"' + (k === per ? ' selected' : '') + '>' + mesNome(k) + '</option>';
+    }).join('') + '<option value="all"' + (per === 'all' ? ' selected' : '') + '>Todo o período</option>';
+
+    var list = vendas.filter(function(v){ return per === 'all' || v.data.slice(0, 7) === per; });
+    var t = { qtd: 0, bruto: 0, recebido: 0, lucro: 0 };
+    list.forEach(function(v){ t.qtd += v.qtd; t.bruto += v.bruto; t.recebido += v.recebido; t.lucro += v.lucro; });
+    $('vKpi').innerHTML =
+      kpi('Peças vendidas', t.qtd, list.length + (list.length === 1 ? ' venda' : ' vendas')) +
+      kpi('Faturamento', money(t.bruto), 'pago pelos clientes') +
+      kpi('Você recebeu', money(t.recebido), 'depois das taxas') +
+      kpi('Lucro', money(t.lucro), 'margem ' + pctF.format(t.bruto > 0 ? t.lucro / t.bruto : 0), list.length ? lc(t.lucro) : '');
+
+    if (!list.length) {
+      var vazio = '<p class="hint" style="margin:0">Nenhuma venda neste período.</p>';
+      $('vModelos').innerHTML = $('vCanais').innerHTML = $('vLista').innerHTML = vazio;
+      return;
+    }
+    // Photos come from the saved model with the same name, so a sale shows the current photo.
+    var fotos = {}, anyFoto = false;
+    saved.forEach(function(m){ var fc = fotoCss(m.modelo.foto), k = (m.modelo.nome || '').trim(); if (fc && !fotos[k]) { fotos[k] = fc; } });
+    list.forEach(function(v){ if (fotos[v.nome.trim()]) anyFoto = true; });
+    var nomeCel = function(nome, extra){
+      var fc = fotos[nome.trim()];
+      return '<td class="nm"><div class="tn">' + (anyFoto ? '<span class="thumb"' + (fc ? ' style="' + fc + '"' : '') + '></span>' : '') +
+        '<div>' + esc(nome) + (extra || '') + '</div></div></td>';
+    };
+    $('vModelos').innerHTML = '<table class="tbl"><thead><tr><th>Modelo</th><th class="r">Peças</th><th class="r">Faturamento</th><th class="r">Lucro</th></tr></thead><tbody>' +
+      group(list, 'nome').map(function(g){
+        return '<tr>' + nomeCel(g.nome) + '<td class="r">' + g.qtd + '</td><td class="r">' + money(g.bruto) + '</td><td class="r ' + lc(g.lucro) + '">' + money(g.lucro) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    $('vCanais').innerHTML = '<table class="tbl"><thead><tr><th>Canal</th><th class="r">Peças</th><th class="r">Faturamento</th><th class="r">Taxas</th><th class="r">Lucro</th></tr></thead><tbody>' +
+      group(list, 'canal').map(function(g){
+        return '<tr><td class="nm">' + esc(g.nome) + '</td><td class="r">' + g.qtd + '</td><td class="r">' + money(g.bruto) + '</td><td class="r">' + money(g.bruto - g.recebido) + '</td><td class="r ' + lc(g.lucro) + '">' + money(g.lucro) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    $('vLista').innerHTML = '<table class="tbl"><thead><tr><th>Data</th><th>Peça</th><th class="r">Qtd</th><th class="r">Recebido</th><th class="r">Lucro</th><th></th></tr></thead><tbody>' +
+      list.map(function(v){
+        return '<tr><td class="dt">' + v.data.split('-').reverse().join('/') + '</td>' +
+          nomeCel(v.nome, '<span class="s2">' + esc(v.canal) + ' · ' + money(v.preco) + ' cada</span>') +
+          '<td class="r">' + v.qtd + '</td><td class="r">' + money(v.recebido) + '</td><td class="r ' + lc(v.lucro) + '">' + money(v.lucro) + '</td>' +
+          '<td class="r"><button type="button" class="xbtn" data-vdel="' + v.id + '" title="Excluir venda" aria-label="Excluir venda">×</button></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  $('vPer').onchange = function(){ state.vPer = this.value; store(KEY_STATE, state); renderVendas(); };
+  $('vLista').addEventListener('click', function(e){
+    var b = e.target.closest('[data-vdel]'); if (!b) return;
+    if (b.dataset.armed) {
+      vendas = vendas.filter(function(v){ return v.id !== b.dataset.vdel; });
+      store(KEY_VENDAS, vendas); flushFile(); renderVendas(); toast('Venda excluída.'); return;
+    }
+    b.dataset.armed = '1'; b.classList.add('armed'); b.textContent = 'Excluir?';
+    setTimeout(function(){ if (b.isConnected) { delete b.dataset.armed; b.classList.remove('armed'); b.textContent = '×'; } }, 3000);
+  });
+
+  /* ---------- data file (File System Access API) ---------- */
+  var FS = 'showSaveFilePicker' in window && 'indexedDB' in window;
+  var fh = null, fileOk = false, fstat = 'none', saveT = null, wq = Promise.resolve(), baseline = '';
+  var FTYPES = [{ description: 'Dados da Calculadora 3D', accept: { 'application/json': ['.json'] } }];
+  function erro(msg){ var e = new Error(msg); e.userMsg = msg; return e; }
+
+  function idb(mode, fn){
+    return new Promise(function(res, rej){
+      var rq = indexedDB.open('calc3d', 1);
+      rq.onupgradeneeded = function(){ rq.result.createObjectStore('kv'); };
+      rq.onerror = function(){ rej(rq.error); };
+      rq.onsuccess = function(){
+        var tx = rq.result.transaction('kv', mode), r = fn(tx.objectStore('kv'));
+        tx.oncomplete = function(){ res(r && r.result); };
+        tx.onerror = function(){ rej(tx.error); };
+      };
+    });
+  }
+  var idbGet = function(k){ return idb('readonly', function(s){ return s.get(k); }); };
+  var idbSet = function(k, v){ return idb('readwrite', function(s){ s.put(v, k); }); };
+  var idbDel = function(k){ return idb('readwrite', function(s){ s.delete(k); }); };
+
+  function snapshot(){ return { app: 'calculadora-3d', versao: 1, salvoEm: new Date().toISOString(), estado: state, modelos: saved, vendas: vendas }; }
+  function validSnap(d){ return !!d && typeof d === 'object' && !!d.estado && typeof d.estado === 'object' && Array.isArray(d.modelos) && Array.isArray(d.vendas); }
+  // Everything except UI position (tab, period filter), to tell whether data changed.
+  function dataKey(s, m, v){ var e = Object.assign({}, s); delete e.tab; delete e.vPer; return JSON.stringify([e, m, v]); }
+  var localKey = function(){ return dataKey(state, saved, vendas); };
+  var snapKey = function(d){ return dataKey(mergeState(d.estado), d.modelos, d.vendas); };
+
+  function applySnapshot(d){
+    var tab = state.tab, ok = fileOk; fileOk = false;
+    state = mergeState(d.estado); state.tab = tab; saved = d.modelos; vendas = d.vendas;
+    store(KEY_STATE, state); store(KEY_SAVED, saved); store(KEY_VENDAS, vendas);
+    refreshAll(); renderSaved(); renderVendas(); $('banner').hidden = !!state.seenSetup;
+    fileOk = ok;
+  }
+  function scheduleFileSave(){ if (!fileOk) return; clearTimeout(saveT); saveT = setTimeout(writeFile, 600); }
+  function flushFile(){ clearTimeout(saveT); return writeFile(); }
+  function writeFile(){
+    if (!fh || !fileOk) return wq;
+    var h = fh;
+    wq = wq.then(function(){
+      var data = JSON.stringify(snapshot(), null, 2);
+      return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); });
+    }).then(function(){ if (fh === h) setFileStatus('ok'); }, function(){ if (fh === h) { fileOk = false; setFileStatus('err'); } });
+    return wq;
+  }
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden' && saveT) flushFile(); });
+
+  function readHandle(h){
+    return h.getFile().then(function(f){ return f.text(); }).then(function(t){
+      if (!t.trim()) return null;
+      var d; try { d = JSON.parse(t); } catch (e) { throw erro('O arquivo "' + h.name + '" não é um JSON válido.'); }
+      if (!validSnap(d)) throw erro('O arquivo "' + h.name + '" não é da Calculadora 3D.');
+      return d;
+    });
+  }
+  // d: file contents to load, or null to write the current data into the file.
+  function useHandle(h, d){
+    fh = h; fileOk = false;
+    if (d) applySnapshot(d);
+    fileOk = true; baseline = localKey();
+    idbSet('arquivo', h).catch(function(){});
+    if (d) { setFileStatus('ok'); return Promise.resolve(); }
+    return writeFile();
+  }
+  function fileFail(e){
+    if (e && e.name === 'AbortError') return;
+    if (e && e.name === 'NotFoundError') e.userMsg = 'O arquivo foi movido ou apagado. Abra ou crie o arquivo de novo em Configurações.';
+    toast((e && e.userMsg) || 'Não foi possível usar o arquivo.', true);
+  }
+  function askWrite(h){
+    return h.requestPermission({ mode: 'readwrite' }).then(function(p){
+      if (p !== 'granted') throw erro('Sem permissão para editar o arquivo. Clique em Permitir quando o navegador perguntar.');
+    });
+  }
+
+  function setFileStatus(s){
+    fstat = s;
+    var name = esc(fh ? fh.name : '');
+    var chip = { ok: ['ok', 'Salvo em ' + (fh ? fh.name : '')], ask: ['', 'Arquivo desconectado'], err: ['bad', 'Erro ao gravar arquivo'], none: ['', 'Salvo só neste navegador'], off: ['', 'Salvo só neste navegador'] }[s];
+    $('fchip').className = 'fchip ' + chip[0]; $('fchipT').textContent = chip[1];
+    $('fbanner').hidden = !(s === 'ask' || s === 'err');
+    $('fbannerT').innerHTML = s === 'err'
+      ? 'Não foi possível gravar no arquivo <b>' + name + '</b>. Suas alterações estão guardadas neste navegador. Clique em Reconectar.'
+      : 'Seus dados estão no arquivo <b>' + name + '</b>. Clique em Reconectar para carregar e continuar salvando nele.';
+    $('fileInfo').innerHTML = {
+      ok: 'Gravando em <b>' + name + '</b>. Cada alteração é salva automaticamente.',
+      ask: 'O arquivo <b>' + name + '</b> precisa ser reconectado. Use o botão Reconectar no topo da página.',
+      err: 'Não foi possível gravar em <b>' + name + '</b>. Use o botão Reconectar no topo da página.',
+      none: 'Os dados estão só neste navegador. Crie um arquivo novo ou abra um que você já tem.',
+      off: 'Este navegador não permite gravar direto em arquivo. Use o Chrome ou o Edge, ou exporte uma cópia de vez em quando.'
+    }[s];
+    $('fCreate').hidden = $('fOpen').hidden = !FS;
+    $('fOpen').textContent = fh ? 'Trocar de arquivo' : 'Abrir arquivo existente';
+    $('fDisc').hidden = !fh;
+    $('vNudge').hidden = !(s === 'none' || s === 'off');
+    $('vNudgeT').textContent = s === 'off'
+      ? 'As vendas estão só neste navegador. Para gravar num arquivo no computador, abra a calculadora no Chrome ou no Edge.'
+      : 'As vendas estão só neste navegador. Grave tudo num arquivo no computador para não perder o histórico.';
+  }
+  function goFileSec(){ showTab('cfg'); $('fileSec').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  $('fchip').onclick = goFileSec;
+  $('vNudgeGo').onclick = goFileSec;
+
+  $('fReconn').onclick = function(){
+    if (!fh) return;
+    var h = fh;
+    askWrite(h).then(function(){
+      if (fstat === 'err') return useHandle(h, null);
+      return readHandle(h).then(function(d){
+        var keepLocal = d && localKey() !== baseline && snapKey(d) !== localKey() &&
+          confirm('Você fez alterações enquanto o arquivo estava desconectado.\n\nOK: gravar estas alterações no arquivo.\nCancelar: descartar e carregar o que está no arquivo.');
+        return useHandle(h, keepLocal ? null : d);
+      });
+    }).then(function(){ toast('Arquivo reconectado.'); }, fileFail);
+  };
+  $('fCreate').onclick = function(){
+    showSaveFilePicker({ suggestedName: 'calculadora-3d-dados.json', types: FTYPES })
+      .then(function(h){ return useHandle(h, null); })
+      .then(function(){ if (fstat === 'ok') toast('Arquivo criado. Tudo será salvo nele automaticamente.'); }, fileFail);
+  };
+  $('fOpen').onclick = function(){
+    var h;
+    showOpenFilePicker({ types: FTYPES, multiple: false })
+      .then(function(hs){ h = hs[0]; return askWrite(h); })
+      .then(function(){ return readHandle(h); })
+      .then(function(d){
+        if (d && (saved.length || vendas.length) && snapKey(d) !== localKey() &&
+          !confirm('Os modelos, vendas e configurações deste navegador serão substituídos pelos do arquivo "' + h.name + '". Continuar?')) return;
+        return useHandle(h, d).then(function(){ toast('Arquivo "' + h.name + '" conectado.'); });
+      }).catch(fileFail);
+  };
+  $('fDisc').onclick = function(){
+    clearTimeout(saveT); fh = null; fileOk = false;
+    idbDel('arquivo').catch(function(){});
+    setFileStatus(FS ? 'none' : 'off'); toast('Arquivo desconectado. Os dados continuam neste navegador.');
+  };
+  $('fExport').onclick = function(){
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(snapshot(), null, 2)], { type: 'application/json' }));
+    a.download = 'calculadora-3d-copia-' + hoje() + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  };
+  $('fImport').onclick = function(){ $('fImportIn').click(); };
+  $('fImportIn').onchange = function(){
+    var f = this.files[0]; this.value = ''; if (!f) return;
+    f.text().then(function(t){
+      var d; try { d = JSON.parse(t); } catch (e) { throw erro('Esse arquivo não é um JSON válido.'); }
+      if (!validSnap(d)) throw erro('Esse arquivo não é da Calculadora 3D.');
+      if (!confirm('Substituir os modelos, vendas e configurações atuais pelos da cópia?')) return;
+      applySnapshot(d); flushFile(); toast('Cópia importada.');
+    }).catch(fileFail);
+  };
+
+  /* ---------- product photo ---------- */
+  function fotoCss(f){ return typeof f === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(f) ? "background-image:url('" + f + "')" : ''; }
+  // Shrink to a small JPEG so photos don't bloat the data file and browser storage.
+  function lerFoto(file){
+    return new Promise(function(res, rej){
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function(){
+        var k = Math.min(1, 400 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); rej(); };
+      img.src = url;
+    });
+  }
+  function renderFoto(){
+    var fc = fotoCss(state.modelo.foto), b = $('fotoBtn');
+    b.setAttribute('style', fc); b.classList.toggle('has', !!fc);
+    b.setAttribute('aria-label', fc ? 'Trocar foto da peça' : 'Adicionar foto da peça');
+    $('sumFoto').hidden = !fc; $('sumFoto').setAttribute('style', fc);
+    $('fotoHint').innerHTML = fc ? 'Clique na foto para trocar. <button class="link" type="button" id="fotoDel">Remover foto</button>' : 'Clique no quadrado, arraste uma imagem ou cole com Ctrl+V.';
+  }
+  function setFoto(file){
+    if (!file || !/^image\//.test(file.type)) return;
+    lerFoto(file).then(function(d){
+      state.modelo.foto = d; renderFoto(); update();
+      toast('Foto adicionada. Clique em "Salvar modelo" para guardar no modelo.');
+    }, function(){ toast('Não foi possível ler essa imagem.', true); });
+  }
+  $('fotoBtn').onclick = function(){ $('fotoIn').click(); };
+  $('fotoIn').onchange = function(){ var f = this.files[0]; this.value = ''; setFoto(f); };
+  $('fotoHint').addEventListener('click', function(e){
+    if (e.target.id !== 'fotoDel') return;
+    delete state.modelo.foto; renderFoto(); update(); toast('Foto removida. Salve o modelo para confirmar.');
+  });
+  ['dragenter', 'dragover'].forEach(function(t){ $('fotoBtn').addEventListener(t, function(e){ e.preventDefault(); this.classList.add('drag'); }); });
+  $('fotoBtn').addEventListener('dragleave', function(){ this.classList.remove('drag'); });
+  $('fotoBtn').addEventListener('drop', function(e){ e.preventDefault(); this.classList.remove('drag'); setFoto(e.dataTransfer.files[0]); });
+  document.addEventListener('paste', function(e){
+    if (state.tab !== 'calc' || !e.clipboardData) return;
+    var f = [].slice.call(e.clipboardData.files || []).filter(function(x){ return /^image\//.test(x.type); })[0];
+    if (f) { e.preventDefault(); setFoto(f); }
+  });
+
+  function refreshAll(){ fillBound(); Object.keys(LISTS).forEach(renderList); buildChans(); renderFoto(); update(); }
+  refreshAll(); renderSaved(); renderVendas();
+  $('banner').hidden = !!state.seenSetup;
+  showTab(state.tab || 'calc');
+  baseline = localKey();
+  if (!FS) setFileStatus('off');
+  else {
+    setFileStatus('none');
+    idbGet('arquivo').then(function(h){
+      if (!h) return;
+      fh = h;
+      return h.queryPermission({ mode: 'readwrite' }).then(function(p){
+        if (p !== 'granted') { setFileStatus('ask'); return; }
+        return readHandle(h).then(function(d){ return useHandle(h, d); });
+      });
+    }).catch(function(e){ if (fh) setFileStatus('ask'); fileFail(e); });
+  }
+})();
+</script>
