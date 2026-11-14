@@ -194,6 +194,10 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   .mbar .mv{font:700 18px var(--f-display)}
   body.has-mbar .wrap{padding-bottom:110px}
 }
+.grows{margin-top:14px}
+.grow{position:relative;padding:14px 44px 12px 0;border-top:1px solid var(--line-2)}
+.grow .xbtn{position:absolute;right:0;top:36px}
+.grow .gprev{margin:8px 0 0}
 .gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
 .gate-box{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:14px}
 .gate-box p{margin:0;font-size:14px;color:var(--ink-2)}
@@ -411,29 +415,19 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   <!-- ============ GASTOS ============ -->
   <section id="view-gastos" role="tabpanel" aria-labelledby="tab-gastos" hidden>
     <section class="sec" style="margin-bottom:14px">
-      <div class="sec-h"><h2>Registrar gasto</h2><p>Compras de filamento, peças, embalagens e tudo mais que sai do caixa da impressão.</p></div>
-      <form id="gForm">
+      <div class="sec-h"><h2>Registrar gastos</h2><p>Compras de filamento, peças, embalagens e tudo mais que sai do caixa da impressão. Coloque vários itens da mesma compra de uma vez.</p></div>
+      <form id="gForm" novalidate>
         <div class="fields">
-          <div class="field"><label class="lbl" for="g-data">Data</label>
+          <div class="field"><label class="lbl" for="g-data">Data da compra</label>
             <div class="inp"><input id="g-data" type="date"></div></div>
-          <div class="field"><label class="lbl" for="g-desc">O que comprou</label>
-            <div class="inp"><input id="g-desc" type="text" list="gSug" placeholder="Ex.: PLA Preto 1 kg" autocomplete="off" required></div></div>
-          <div class="field"><label class="lbl" for="g-cat">Categoria</label>
-            <div class="inp"><select id="g-cat"></select></div></div>
-          <div class="field"><label class="lbl" for="g-valor">Valor total</label>
-            <div class="inp"><span class="u pre">R$</span><input id="g-valor" class="num" type="text" inputmode="decimal" placeholder="0,00" required></div>
-            <span class="hint">Com o frete, se teve.</span></div>
         </div>
-        <div class="fields" id="gFil" hidden style="margin-top:14px">
-          <div class="field"><label class="lbl" for="g-kg">Quantos kg vieram</label>
-            <div class="inp"><input id="g-kg" class="num" type="text" inputmode="decimal" value="1"><span class="u">kg</span></div>
-            <span class="hint">Some todos os rolos da compra.</span></div>
-          <div class="field"><label class="lbl" for="g-mat">Atualizar o preço de</label>
-            <div class="inp"><select id="g-mat"></select></div></div>
-          <div class="field wide"><p class="explain" id="gFilPrev" style="margin:0"></p></div>
-        </div>
+        <div id="gRows" class="grows"></div>
         <datalist id="gSug"></datalist>
-        <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Adicionar gasto</button></div>
+        <div class="under" style="margin-top:4px">
+          <button class="link" type="button" id="gAddRow">+ Outro item</button>
+          <span class="hint" id="gTotal"></span>
+        </div>
+        <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit" id="gSave">Adicionar gasto</button></div>
       </form>
     </section>
     <div class="vhead">
@@ -1132,7 +1126,6 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   /* ---------- expenses page ---------- */
   var CATS = ['Filamento', 'Peças e manutenção', 'Embalagens', 'Acessórios (argolas, ímãs…)', 'Ferramentas e equipamentos',
     'Energia e contas', 'Frete e envio', 'Anúncios e divulgação', 'Outros'];
-  $('g-cat').innerHTML = CATS.map(function(c){ return '<option>' + esc(c) + '</option>'; }).join('');
   function periodOptions(sel, list, per){
     var cur = hoje().slice(0, 7), months = {};
     months[cur] = 1; list.forEach(function(v){ months[v.data.slice(0, 7)] = 1; });
@@ -1154,7 +1147,8 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     var sug = gastoSugestoes();
     $('gSug').innerHTML = Object.keys(sug).map(function(k){ return '<option value="' + esc(k) + '">'; }).join('');
     if (!$('g-data').value) $('g-data').value = hoje();
-    fillMatSelect(); gFilSync();
+    if (!gRows().length) addRow();
+    gRows().forEach(function(r){ fillMatSelect(r); rowSync(r); });
     var per = periodOptions($('gPer'), vendas.concat(gastos), state.vPer);  // same period as the Vendas tab
     var inPer = function(v){ return per === 'all' || v.data.slice(0, 7) === per; };
     var list = gastos.filter(inPer), total = 0, cats = {};
@@ -1183,10 +1177,40 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
           '<td class="r"><button type="button" class="xbtn" data-gdel="' + g.id + '" title="Excluir gasto" aria-label="Excluir gasto">×</button></td></tr>';
       }).join('') + '</tbody></table>';
   }
-  /* Filament purchases: price per kg, optionally copied to the filament in Configurações. */
-  var NOVO = '__novo', gMatTouched = false;
-  function fillMatSelect(){
-    var sel = $('g-mat'), cur = sel.value;
+  /* Expense form: one shared date and one row per item bought.
+     Filament rows also take the kg, show the price per kg and can copy it to the filament in Configurações. */
+  var NOVO = '__novo';
+  var gRows = function(){ return [].slice.call($('gRows').querySelectorAll('.grow')); };
+  var fv = function(r, f){ return r.querySelector('[data-f="' + f + '"]'); };
+  function addRow(){
+    var r = document.createElement('div');
+    r.className = 'grow';
+    r.innerHTML =
+      '<div class="fields">' +
+        '<div class="field"><span class="lbl">O que comprou</span><div class="inp"><input data-f="desc" type="text" list="gSug" placeholder="Ex.: PLA Preto 1 kg" autocomplete="off" aria-label="O que comprou"></div></div>' +
+        '<div class="field"><span class="lbl">Categoria</span><div class="inp"><select data-f="cat" aria-label="Categoria">' +
+          CATS.map(function(c){ return '<option>' + esc(c) + '</option>'; }).join('') + '</select></div></div>' +
+        '<div class="field"><span class="lbl">Valor total</span><div class="inp"><span class="u pre">R$</span><input data-f="valor" class="num" type="text" inputmode="decimal" placeholder="0,00" aria-label="Valor total, com frete"></div></div>' +
+        '<div class="field" data-fil hidden><span class="lbl">Quantos kg vieram</span><div class="inp"><input data-f="kg" class="num" type="text" inputmode="decimal" value="1" aria-label="Quantos kg vieram"><span class="u">kg</span></div></div>' +
+        '<div class="field" data-fil hidden><span class="lbl">Atualizar o preço de</span><div class="inp"><select data-f="mat" aria-label="Atualizar o preço de"></select></div></div>' +
+      '</div>' +
+      '<p class="hint gprev" data-prev hidden></p>' +
+      '<button type="button" class="xbtn" data-rdel title="Tirar este item" aria-label="Tirar este item">×</button>';
+    $('gRows').appendChild(r);
+    fillMatSelect(r); rowSync(r); gFormSync();
+    return r;
+  }
+  // Rows with nothing typed are ignored when saving.
+  var rowEmpty = function(r){ return !fv(r, 'desc').value.trim() && !fv(r, 'valor').value.trim(); };
+  function gFormSync(){
+    var rows = gRows(), cheias = rows.filter(function(r){ return !rowEmpty(r); }), tot = 0;
+    cheias.forEach(function(r){ tot += n(fv(r, 'valor').value); });
+    rows.forEach(function(r){ r.querySelector('[data-rdel]').hidden = rows.length < 2; });
+    $('gTotal').textContent = cheias.length > 1 ? cheias.length + ' itens · total ' + money(tot) : '';
+    $('gSave').textContent = cheias.length > 1 ? 'Adicionar ' + cheias.length + ' gastos' : 'Adicionar gasto';
+  }
+  function fillMatSelect(r){
+    var sel = fv(r, 'mat'), cur = sel.value;
     sel.innerHTML = '<option value="">Não atualizar</option>' +
       state.cfg.materiais.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.nome || 'Filamento sem nome') + '</option>'; }).join('') +
       '<option value="' + NOVO + '">+ Cadastrar como filamento novo</option>';
@@ -1203,50 +1227,78 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
     return best;
   }
   var precoStr = function(v){ return String(r2(v)).replace('.', ','); };
-  function gFilSync(){
-    var on = $('g-cat').value === 'Filamento';
-    $('gFil').hidden = !on;
+  function rowSync(r){
+    var on = fv(r, 'cat').value === 'Filamento', prev = r.querySelector('[data-prev]');
+    [].forEach.call(r.querySelectorAll('[data-fil]'), function(f){ f.hidden = !on; });
+    prev.hidden = !on;
     if (!on) return;
-    if (!gMatTouched) $('g-mat').value = guessMat($('g-desc').value);
-    var valor = n($('g-valor').value), kg = n($('g-kg').value), mat = byId(state.cfg.materiais, $('g-mat').value);
-    if (!(valor > 0) || !(kg > 0)) { $('gFilPrev').textContent = 'Preencha o valor e os kg para ver o preço por kg.'; return; }
-    var pk = valor / kg, nome = esc($('g-desc').value.trim() || 'Filamento novo');
-    $('gFilPrev').innerHTML = 'Sai a <b>' + money(pk) + ' por kg</b>. ' + (
+    if (!r.dataset.touched) fv(r, 'mat').value = guessMat(fv(r, 'desc').value);
+    var valor = n(fv(r, 'valor').value), kg = n(fv(r, 'kg').value), mid = fv(r, 'mat').value, mat = byId(state.cfg.materiais, mid);
+    if (!(valor > 0) || !(kg > 0)) { prev.textContent = 'Preencha o valor e os kg para ver o preço por kg.'; return; }
+    var pk = valor / kg, nome = esc(fv(r, 'desc').value.trim() || 'Filamento novo');
+    prev.innerHTML = 'Sai a <b>' + money(pk) + ' por kg</b>. ' + (
       mat ? 'O preço de <b>' + esc(mat.nome) + '</b> nos cálculos vai de ' + money(n(mat.precoKg)) + ' para <b>' + money(r2(pk)) + '</b>/kg.'
-      : $('g-mat').value === NOVO ? '<b>' + nome + '</b> vai ser cadastrado em Configurações com esse preço.'
-      : 'Escolha o filamento acima para atualizar o preço usado nos cálculos.');
+      : mid === NOVO ? '<b>' + nome + '</b> vai ser cadastrado em Configurações com esse preço.'
+      : 'Escolha o filamento para atualizar o preço usado nos cálculos.');
   }
-  $('g-mat').addEventListener('change', function(){ gMatTouched = true; gFilSync(); });
-  $('gForm').addEventListener('input', function(e){ if (e.target.id !== 'g-mat') gFilSync(); });
-  $('g-cat').addEventListener('change', gFilSync);
+  $('gRows').addEventListener('input', function(e){
+    var r = e.target.closest('.grow'); if (!r) return;
+    if (e.target.dataset.f !== 'mat') rowSync(r);
+    gFormSync();
+  });
+  $('gRows').addEventListener('change', function(e){
+    var r = e.target.closest('.grow'); if (!r) return;
+    var f = e.target.dataset.f;
+    if (f === 'mat') r.dataset.touched = '1';
+    // Picking a known name fills in its category.
+    if (f === 'desc') { var c = gastoSugestoes()[e.target.value.trim()]; if (c && CATS.indexOf(c) >= 0) fv(r, 'cat').value = c; }
+    rowSync(r); gFormSync();
+  });
+  $('gRows').addEventListener('click', function(e){
+    var b = e.target.closest('[data-rdel]'); if (!b) return;
+    b.closest('.grow').remove(); gFormSync();
+  });
+  // A new row starts with the category of the row above (several filaments in a row is the common case).
+  $('gAddRow').onclick = function(){
+    var rows = gRows(), last = rows[rows.length - 1], r = addRow();
+    if (last) { fv(r, 'cat').value = fv(last, 'cat').value; rowSync(r); }
+    fv(r, 'desc').focus();
+  };
 
-  // Picking a known name fills in its category.
-  $('g-desc').addEventListener('change', function(){ var c = gastoSugestoes()[this.value.trim()]; if (c && CATS.indexOf(c) >= 0) $('g-cat').value = c; gFilSync(); });
   $('gForm').addEventListener('submit', function(e){
     e.preventDefault();
-    var desc = $('g-desc').value.trim(), valor = r2(n($('g-valor').value));
-    if (!desc) return;
-    if (!(valor > 0)) { toast('Informe o valor do gasto.', true); $('g-valor').focus(); return; }
-    var data = $('g-data').value || hoje(), cat = $('g-cat').value, g = { id: uid(), data: data, desc: desc, cat: cat, valor: valor }, extra = '';
-    if (cat === 'Filamento') {
-      var kg = n($('g-kg').value);
-      if (!(kg > 0)) { toast('Informe quantos kg vieram.', true); $('g-kg').focus(); return; }
-      g.kg = r2(kg); g.precoKg = r2(valor / kg);
-      var mid = $('g-mat').value, mat = byId(state.cfg.materiais, mid);
-      if (mid === NOVO) { mat = { id: uid(), nome: desc, precoKg: '' }; state.cfg.materiais.push(mat); }
-      if (mat) {
-        mat.precoKg = precoStr(g.precoKg);
-        extra = ' Preço de ' + (mat.nome || 'filamento') + ' atualizado para ' + money(g.precoKg) + '/kg.';
-        refreshAll(); renderSaved();
+    var data = $('g-data').value || hoje(), rows = gRows().filter(function(r){ return !rowEmpty(r); }), novos = [], erroEm = null;
+    if (!rows.length) { toast('Preencha o que comprou e o valor.', true); fv(gRows()[0], 'desc').focus(); return; }
+    // Check every row before saving anything.
+    rows.some(function(r){
+      var desc = fv(r, 'desc').value.trim(), valor = r2(n(fv(r, 'valor').value)), cat = fv(r, 'cat').value;
+      if (!desc) { erroEm = [r, 'desc', 'Falta dizer o que comprou.']; return true; }
+      if (!(valor > 0)) { erroEm = [r, 'valor', 'Falta o valor de "' + desc + '".']; return true; }
+      var g = { id: uid(), data: data, desc: desc, cat: cat, valor: valor };
+      if (cat === 'Filamento') {
+        var kg = n(fv(r, 'kg').value);
+        if (!(kg > 0)) { erroEm = [r, 'kg', 'Falta quantos kg vieram de "' + desc + '".']; return true; }
+        g.kg = r2(kg); g.precoKg = r2(valor / kg);
       }
-    }
-    gastos.push(g);
+      novos.push({ g: g, mat: cat === 'Filamento' ? fv(r, 'mat').value : '' });
+    });
+    if (erroEm) { toast(erroEm[2], true); fv(erroEm[0], erroEm[1]).focus(); return; }
+
+    var precos = [], total = 0;
+    novos.forEach(function(x){
+      var g = x.g, mat = byId(state.cfg.materiais, x.mat);
+      total += g.valor; gastos.push(g);
+      if (x.mat === NOVO) { mat = { id: uid(), nome: g.desc, precoKg: '' }; state.cfg.materiais.push(mat); }
+      if (mat) { mat.precoKg = precoStr(g.precoKg); precos.push((mat.nome || 'filamento') + ' → ' + money(g.precoKg) + '/kg'); }
+    });
+    if (precos.length) { refreshAll(); renderSaved(); }
     gastos.sort(function(a, b){ return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
     state.vPer = data.slice(0, 7);
     store(KEY_GASTOS, gastos); store(KEY_STATE, state); flushFile();
-    $('g-desc').value = ''; $('g-valor').value = ''; $('g-kg').value = '1'; gMatTouched = false;
-    renderGastos(); $('g-desc').focus();
-    toast('Gasto adicionado: ' + desc + ', ' + money(valor) + '.' + extra);
+    $('gRows').innerHTML = ''; addRow();
+    renderGastos(); fv(gRows()[0], 'desc').focus();
+    toast((novos.length === 1 ? 'Gasto adicionado: ' + novos[0].g.desc + ', ' : novos.length + ' gastos adicionados, total de ') + money(total) + '.' +
+      (precos.length ? ' Preço atualizado: ' + precos.join('; ') + '.' : ''));
   });
   $('gPer').onchange = function(){ state.vPer = this.value; store(KEY_STATE, state); renderGastos(); };
   $('gLista').addEventListener('click', function(e){
