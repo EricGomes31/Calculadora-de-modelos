@@ -1484,7 +1484,10 @@ details.why summary{cursor:pointer;font-size:13.5px;font-weight:500;color:var(--
   var KEY_CLOUD = 'calc3d.nuvem.v1';
   var sb = null, cUser = null, cStat = 'off', cT = null, cq = Promise.resolve(), cPulling = false;
   var cMeta = load(KEY_CLOUD, {}) || {};
-  try { if (CLOUD_CFG && window.supabase) sb = window.supabase.createClient(SUPA_URL, SUPA_KEY); } catch (e) { sb = null; }
+  // The login lives in sessionStorage: it survives reloads but ends when the tab or browser closes.
+  // Older versions kept it in localStorage (signed in forever), so drop any such leftover.
+  try { Object.keys(localStorage).forEach(function(k){ if (/^sb-.*-auth-token/.test(k)) localStorage.removeItem(k); }); } catch (e) {}
+  try { if (CLOUD_CFG && window.supabase) sb = window.supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { storage: window.sessionStorage, persistSession: true } }); } catch (e) { sb = null; }
   function cSaveMeta(){ try { localStorage.setItem(KEY_CLOUD, JSON.stringify(cMeta)); } catch (e) {} }
   function hashStr(s){ var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + '.' + s.length; }
   function cSet(s){ cStat = s; renderCloud(); renderChip(); }
